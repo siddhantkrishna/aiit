@@ -3,8 +3,7 @@ import { db } from "@/db";
 import { applications, documents } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { generateApplicationId } from "@/lib/utils";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { supabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
@@ -22,57 +21,66 @@ export async function POST(req: NextRequest) {
 
     const applicationId = generateApplicationId();
 
-    // Save application
     const newApp = await db.insert(applications).values({
       applicationId,
       courseId: parseInt(formData.get("courseId") as string),
       universityId: formData.get("universityId") ? parseInt(formData.get("universityId") as string) : null,
       studyMode: formData.get("studyMode") as string,
       firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string || "",
+      lastName: (formData.get("lastName") as string) || "",
       fatherName: formData.get("fatherName") as string,
       motherName: formData.get("motherName") as string,
       dob: formData.get("dob") as string,
       gender: formData.get("gender") as string,
       mobile: formData.get("mobile") as string,
-      email: formData.get("email") as string || "",
+      email: (formData.get("email") as string) || "",
       address: formData.get("address") as string,
       city: formData.get("city") as string,
       state: formData.get("state") as string,
       pinCode: formData.get("pinCode") as string,
-      tenthBoard: formData.get("tenthBoard") as string || "",
-      tenthYear: formData.get("tenthYear") as string || "",
-      tenthPercentage: formData.get("tenthPercentage") as string || "",
-      twelfthBoard: formData.get("twelfthBoard") as string || "",
-      twelfthYear: formData.get("twelfthYear") as string || "",
-      twelfthPercentage: formData.get("twelfthPercentage") as string || "",
-      gradUniversity: formData.get("gradUniversity") as string || "",
-      gradYear: formData.get("gradYear") as string || "",
-      gradPercentage: formData.get("gradPercentage") as string || "",
+      tenthBoard: (formData.get("tenthBoard") as string) || "",
+      tenthYear: (formData.get("tenthYear") as string) || "",
+      tenthPercentage: (formData.get("tenthPercentage") as string) || "",
+      twelfthBoard: (formData.get("twelfthBoard") as string) || "",
+      twelfthYear: (formData.get("twelfthYear") as string) || "",
+      twelfthPercentage: (formData.get("twelfthPercentage") as string) || "",
+      gradUniversity: (formData.get("gradUniversity") as string) || "",
+      gradYear: (formData.get("gradYear") as string) || "",
+      gradPercentage: (formData.get("gradPercentage") as string) || "",
       status: "pending",
       declaration: formData.get("declaration") === "true",
     }).returning();
 
-    // Save uploaded files
-    const uploadDir = path.join(process.cwd(), "public", "uploads", applicationId);
-    await mkdir(uploadDir, { recursive: true });
-
     const fileFields = ["photo", "aadhaar", "tenthMarksheet", "twelfthMarksheet", "gradMarksheet", "otherDoc"];
-    
+
     for (const field of fileFields) {
       const file = formData.get(field) as File | null;
       if (file && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const ext = file.name.split(".").pop() || "pdf";
-        const fileName = `${field}.${ext}`;
-        const filePath = path.join(uploadDir, fileName);
-        await writeFile(filePath, buffer);
+        const objectPath = `${applicationId}/${field}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(objectPath, buffer, {
+            contentType: file.type || "application/octet-stream",
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          continue;
+        }
+
+        const { data: publicUrl } = supabase.storage
+          .from("documents")
+          .getPublicUrl(objectPath);
 
         await db.insert(documents).values({
           applicationId,
           docType: field,
           fileName: file.name,
-          filePath: `/uploads/${applicationId}/${fileName}`,
+          filePath: publicUrl.publicUrl,
           fileSize: file.size,
         });
       }
