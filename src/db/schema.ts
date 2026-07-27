@@ -1,0 +1,86 @@
+import {
+  pgTable,
+  text,
+  varchar,
+  integer,
+  boolean,
+  timestamp,
+  serial,
+} from "drizzle-orm/pg-core";
+
+export const universities = pgTable("universities", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  shortName: varchar("short_name", { length: 50 }),
+  location: varchar("location", { length: 255 }),
+  logo: text("logo"),
+  description: text("description"),
+  website: varchar("website", { length: 255 }),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const courses = pgTable("courses", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  fullName: varchar("full_name", { length: 500 }),
+  duration: varchar("duration", { length: 100 }),
+  eligibility: text("eligibility"),
+  universityId: integer("university_id"),
+  studyMode: varchar("study_mode", { length: 100 }),
+  category: varchar("category", { length: 100 }),
+  fee: varchar("fee", { length: 100 }),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const applications = pgTable("applications", {
+  id: serial("id").primaryKey(),
+  applicationId: varchar("application_id", { length: 50 }).notNull().unique(),
+  courseId: integer("course_id").notNull(),
+  universityId: integer("university_id"),
+  studyMode: varchar("study_mode", { length: 100 }),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }),
+  fatherName: varchar("father_name", { length: 255 }).notNull(),
+  motherName: varchar("mother_name", { length: 255 }).notNull(),
+  dob: varchar("dob", { length: 20 }).notNull(),
+  gender: varchar("gender", { length: 20 }).notNull(),
+  mobile: varchar("mobile", { length: 15 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  address: text("address").notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  state: varchar("state", { length: 100 }).notNull(),
+  pinCode: varchar("pin_code", { length: 10 }).notNull(),
+  tenthBoard: varchar("tenth_board", { length: 255 }),
+  tenthYear: varchar("tenth_year", { length: 10 }),
+  tenthPercentage: varchar("tenth_percentage", { length: 10 }),
+  twelfthBoard: varchar("twelfth_board", { length: 255 }),
+  twelfthYear: varchar("twelfth_year", { length: 10 }),
+  twelfthPercentage: varchar("twelfth_percentage", { length: 10 }),
+  gradUniversity: varchar("grad_university", { length: 255 }),
+  gradYear: varchar("grad_year", { length: 10 }),
+  gradPercentage: varchar("grad_percentage", { length: 10 }),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  declaration: boolean("declaration").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const documents = pgTable("documents", {
+  id: serial("id").primaryKey(),
+  applicationId: varchar("application_id", { length: 50 }).notNull(),
+  docType: varchar("doc_type", { length: 100 }).notNull(),
+  fileName: varchar("file_name", { length: 500 }).notNull(),
+  filePath: text("file_path").notNull(),
+  fileSize: integer("file_size"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const admin = pgTable("admin", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: text("password").notNull(),
+  name: varchar("name", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
