@@ -61,6 +61,8 @@ export const applications = pgTable("applications", {
   gradUniversity: varchar("grad_university", { length: 255 }),
   gradYear: varchar("grad_year", { length: 10 }),
   gradPercentage: varchar("grad_percentage", { length: 10 }),
+  paymentScreenshotPath: text("payment_screenshot_path"),
+  paymentScreenshotUploadedAt: timestamp("payment_screenshot_uploaded_at"),
   status: varchar("status", { length: 20 }).default("pending").notNull(),
   declaration: boolean("declaration").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
