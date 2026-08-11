@@ -6,10 +6,26 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const sidebarLinks = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/admin/dashboard/applications", label: "Applications", icon: "📋" },
-  { href: "/admin/dashboard/courses", label: "Courses", icon: "📚" },
-  { href: "/admin/dashboard/universities", label: "Universities", icon: "🏛️" },
+  {
+    href: "/admin/dashboard",
+    label: "Dashboard",
+    icon: "📊",
+  },
+  {
+    href: "/admin/dashboard/applications",
+    label: "Applications",
+    icon: "📋",
+  },
+  {
+    href: "/admin/dashboard/courses",
+    label: "Courses",
+    icon: "📚",
+  },
+  {
+    href: "/admin/dashboard/universities",
+    label: "Universities",
+    icon: "🏛️",
+  },
 ];
 
 export default function AdminLayout({
@@ -19,28 +35,67 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    fetch("/api/admin/verify")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.authenticated) {
-          router.push("/admin/login");
-        } else {
-          setVerified(true);
+    let mounted = true;
+
+    async function verifyAdmin() {
+      try {
+        const response = await fetch("/api/admin/verify", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          if (mounted) {
+            router.replace("/admin/login");
+          }
+          return;
         }
-      })
-      .catch(() => router.push("/admin/login"));
+
+        const data = await response.json();
+
+        if (!mounted) return;
+
+        if (data.authenticated === true) {
+          setVerified(true);
+        } else {
+          router.replace("/admin/login");
+        }
+      } catch {
+        if (mounted) {
+          router.replace("/admin/login");
+        }
+      } finally {
+        if (mounted) {
+          setCheckingAuth(false);
+        }
+      }
+    }
+
+    verifyAdmin();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 
   async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
+    try {
+      await fetch("/api/admin/logout", {
+        method: "POST",
+      });
+    } finally {
+      router.replace("/admin/login");
+      router.refresh();
+    }
   }
 
-  if (!verified) {
+  if (checkingAuth || !verified) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted">Loading...</p>
@@ -48,15 +103,27 @@ export default function AdminLayout({
     );
   }
 
+  const currentPage =
+    sidebarLinks.find((link) => {
+      if (link.href === "/admin/dashboard") {
+        return pathname === link.href;
+      }
+
+      return pathname.startsWith(link.href);
+    })?.label || "Admin";
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-border transform transition-transform lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
+          sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full"
         } lg:static lg:inset-auto`}
       >
         <div className="h-full flex flex-col">
+          {/* Logo */}
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <Image
@@ -66,47 +133,67 @@ export default function AdminLayout({
                 height={36}
                 className="rounded-full"
               />
+
               <div>
-                <p className="text-sm font-bold text-primary-dark">AIIT Admin</p>
-                <p className="text-[10px] text-muted">Dashboard</p>
+                <p className="text-sm font-bold text-primary-dark">
+                  AIIT Admin
+                </p>
+
+                <p className="text-[10px] text-muted">
+                  Dashboard
+                </p>
               </div>
             </div>
           </div>
+
+          {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
-            {sidebarLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === link.href
-                    ? "bg-primary text-white"
-                    : "text-foreground hover:bg-blue-50 hover:text-primary"
-                }`}
-              >
-                <span>{link.icon}</span>
-                {link.label}
-              </Link>
-            ))}
+            {sidebarLinks.map((link) => {
+              const active =
+                link.href === "/admin/dashboard"
+                  ? pathname === link.href
+                  : pathname.startsWith(link.href);
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() =>
+                    setSidebarOpen(false)
+                  }
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-primary text-white"
+                      : "text-foreground hover:bg-blue-50 hover:text-primary"
+                  }`}
+                >
+                  <span>{link.icon}</span>
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
           </nav>
+
+          {/* Bottom */}
           <div className="p-4 border-t border-border">
             <button
               onClick={handleLogout}
               className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left font-medium"
             >
-              🚪 Logout
+              Logout
             </button>
+
             <Link
               href="/"
               className="block mt-1 px-3 py-2 text-sm text-muted hover:bg-gray-50 rounded-lg transition-colors font-medium"
             >
-              🌐 View Website
+              View Website
             </Link>
           </div>
         </div>
       </aside>
 
-      {/* Overlay */}
+      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40 lg:hidden"
@@ -118,8 +205,10 @@ export default function AdminLayout({
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-border px-4 py-3 flex items-center gap-4 lg:px-6">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
+            aria-label="Open menu"
           >
             <svg
               className="w-5 h-5"
@@ -135,11 +224,15 @@ export default function AdminLayout({
               />
             </svg>
           </button>
+
           <h1 className="text-lg font-semibold text-foreground">
-            {sidebarLinks.find((l) => l.href === pathname)?.label || "Admin"}
+            {currentPage}
           </h1>
         </header>
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">{children}</main>
+
+        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

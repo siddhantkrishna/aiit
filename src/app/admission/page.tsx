@@ -61,8 +61,11 @@ export default function AdmissionPage() {
   const [submitted, setSubmitted] = useState(false);
   const [applicationId, setApplicationId] = useState("");
   const [error, setError] = useState("");
+
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
   const [paymentPreview, setPaymentPreview] = useState("");
+  const [paymentUploading, setPaymentUploading] = useState(false);
+  const [paymentUploaded, setPaymentUploaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/courses")
@@ -125,20 +128,14 @@ export default function AdmissionPage() {
 
     setPaymentScreenshot(file);
     setPaymentPreview(URL.createObjectURL(file));
+    setPaymentUploaded(false);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     setLoading(true);
     setError("");
-
-    if (!paymentScreenshot) {
-      setError(
-        "Please upload your successful payment screenshot before submitting the application."
-      );
-      setLoading(false);
-      return;
-    }
 
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -148,8 +145,6 @@ export default function AdmissionPage() {
       setLoading(false);
       return;
     }
-
-    formData.set("paymentScreenshot", paymentScreenshot);
 
     try {
       const res = await fetch("/api/applications", {
@@ -175,14 +170,52 @@ export default function AdmissionPage() {
     setLoading(false);
   }
 
+  async function handlePaymentUpload() {
+    if (!paymentScreenshot || !applicationId) {
+      setError("Please select your successful payment screenshot.");
+      return;
+    }
+
+    setPaymentUploading(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+
+      formData.append("applicationId", applicationId);
+      formData.append("paymentScreenshot", paymentScreenshot);
+
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setPaymentUploaded(true);
+        setError("");
+      } else {
+        setError(
+          data.error ||
+            "Failed to upload payment screenshot. Please try again."
+        );
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    }
+
+    setPaymentUploading(false);
+  }
+
   if (submitted) {
     return (
       <>
         <Navbar />
 
         <main className="min-h-screen bg-background">
-          <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-            <div className="bg-white rounded-2xl border border-border p-8 md:p-12">
+          <div className="max-w-3xl mx-auto px-4 py-12">
+            <div className="bg-white rounded-2xl border border-border p-8 md:p-12 text-center">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">✓</span>
               </div>
@@ -196,7 +229,7 @@ export default function AdmissionPage() {
                 reviewed.
               </p>
 
-              <div className="bg-background rounded-xl border border-border p-6 mb-6">
+              <div className="bg-background rounded-xl border border-border p-6 mb-8">
                 <p className="text-sm text-muted mb-1">
                   Your Application ID
                 </p>
@@ -212,25 +245,131 @@ export default function AdmissionPage() {
                 </div>
               </div>
 
-              <p className="text-sm text-muted mb-6">
-                Please save your Application ID. You can use it to check your
-                application status.
-              </p>
+              <div className="border-t border-border pt-8">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Complete Your Payment
+                </h2>
 
-              <div className="flex flex-wrap gap-3 justify-center">
-                <a
-                  href="/status"
-                  className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
-                >
-                  Check Status
-                </a>
+                <p className="text-sm text-muted max-w-xl mx-auto mb-6">
+                  Scan the QR code below using any UPI app and make your
+                  payment. You may pay any amount you wish.
+                </p>
 
-                <a
-                  href="/"
-                  className="px-6 py-2.5 border border-border text-foreground font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Back to Home
-                </a>
+                <div className="flex justify-center mb-6">
+                  <div className="bg-white border border-border rounded-2xl p-4 shadow-sm">
+                    <Image
+                      src="/images/aiit-qr.jpeg"
+                      alt="AIIT payment QR code"
+                      width={320}
+                      height={320}
+                      className="w-[260px] h-[260px] sm:w-[320px] sm:h-[320px] object-contain"
+                    />
+                  </div>
+                </div>
+
+                <div className="max-w-xl mx-auto text-left">
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+                    <p className="text-sm font-medium text-blue-900 mb-1">
+                      After payment
+                    </p>
+
+                    <p className="text-sm text-blue-800">
+                      Upload a screenshot showing your successful transaction.
+                      Your payment will be manually verified by AIIT.
+                    </p>
+                  </div>
+
+                  {paymentUploaded ? (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+                      <div className="text-green-700 font-semibold mb-1">
+                        Payment Screenshot Uploaded
+                      </div>
+
+                      <p className="text-sm text-green-700">
+                        Your payment screenshot has been received and will be
+                        manually verified.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Payment Screenshot{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+
+                      <div className="border-2 border-dashed border-border rounded-xl p-5">
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                          onChange={handlePaymentScreenshotChange}
+                          className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
+                        />
+
+                        <p className="text-xs text-muted mt-2">
+                          JPG, PNG or WebP · Maximum 5MB
+                        </p>
+
+                        {paymentPreview && (
+                          <div className="mt-5">
+                            <p className="text-sm font-medium text-green-700 mb-3">
+                              Screenshot selected
+                            </p>
+
+                            <div className="border border-border rounded-xl p-3 bg-background">
+                              <Image
+                                src={paymentPreview}
+                                alt="Payment screenshot preview"
+                                width={600}
+                                height={800}
+                                className="max-h-[500px] w-auto max-w-full mx-auto rounded-lg object-contain"
+                                unoptimized
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={handlePaymentUpload}
+                          disabled={paymentUploading || !paymentScreenshot}
+                          className="w-full mt-5 px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {paymentUploading
+                            ? "Uploading..."
+                            : "Upload Payment Screenshot"}
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-muted mt-3">
+                        Payment verification is done manually using the
+                        uploaded transaction screenshot.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-border">
+                <p className="text-sm text-muted mb-6">
+                  Please save your Application ID. You can use it to check
+                  your application status.
+                </p>
+
+                <div className="flex flex-wrap gap-3 justify-center">
+                  <a
+                    href="/status"
+                    className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
+                  >
+                    Check Status
+                  </a>
+
+                  <a
+                    href="/"
+                    className="px-6 py-2.5 border border-border text-foreground font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Back to Home
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -246,7 +385,6 @@ export default function AdmissionPage() {
       <Navbar />
 
       <main className="min-h-screen bg-background">
-        {/* Header */}
         <section className="bg-primary-dark text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <Image
@@ -267,7 +405,6 @@ export default function AdmissionPage() {
           </div>
         </section>
 
-        {/* Form */}
         <section className="py-8 md:py-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             {error && (
@@ -277,7 +414,6 @@ export default function AdmissionPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Course Selection */}
               <div className="bg-white rounded-xl border border-border p-6">
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Course Selection
@@ -286,8 +422,7 @@ export default function AdmissionPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">
-                      Select Course{" "}
-                      <span className="text-red-500">*</span>
+                      Select Course <span className="text-red-500">*</span>
                     </label>
 
                     <select
@@ -346,7 +481,6 @@ export default function AdmissionPage() {
                 </div>
               </div>
 
-              {/* Personal Details */}
               <div className="bg-white rounded-xl border border-border p-6">
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Personal Details
@@ -357,7 +491,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       First Name <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       name="firstName"
                       required
@@ -370,7 +503,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Last Name
                     </label>
-
                     <input
                       name="lastName"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -383,7 +515,6 @@ export default function AdmissionPage() {
                       Father&apos;s Name{" "}
                       <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       name="fatherName"
                       required
@@ -397,7 +528,6 @@ export default function AdmissionPage() {
                       Mother&apos;s Name{" "}
                       <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       name="motherName"
                       required
@@ -410,7 +540,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Date of Birth <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       type="date"
                       name="dob"
@@ -423,7 +552,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Gender <span className="text-red-500">*</span>
                     </label>
-
                     <select
                       name="gender"
                       required
@@ -441,7 +569,6 @@ export default function AdmissionPage() {
                       Mobile Number{" "}
                       <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       name="mobile"
                       type="tel"
@@ -456,7 +583,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Email
                     </label>
-
                     <input
                       name="email"
                       type="email"
@@ -467,7 +593,6 @@ export default function AdmissionPage() {
                 </div>
               </div>
 
-              {/* Address */}
               <div className="bg-white rounded-xl border border-border p-6">
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Address
@@ -478,7 +603,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Address <span className="text-red-500">*</span>
                     </label>
-
                     <textarea
                       name="address"
                       required
@@ -492,7 +616,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       City <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       name="city"
                       required
@@ -505,7 +628,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       State <span className="text-red-500">*</span>
                     </label>
-
                     <select
                       name="state"
                       required
@@ -525,7 +647,6 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       PIN Code <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       name="pinCode"
                       required
@@ -537,7 +658,6 @@ export default function AdmissionPage() {
                 </div>
               </div>
 
-              {/* Education Details */}
               <div className="bg-white rounded-xl border border-border p-6">
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Education Details
@@ -552,10 +672,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Board
                     </label>
-
                     <input
                       name="tenthBoard"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., CBSE, MP Board"
                     />
                   </div>
@@ -564,10 +683,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Year
                     </label>
-
                     <input
                       name="tenthYear"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 2020"
                     />
                   </div>
@@ -576,10 +694,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Percentage
                     </label>
-
                     <input
                       name="tenthPercentage"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 75%"
                     />
                   </div>
@@ -594,10 +711,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Board
                     </label>
-
                     <input
                       name="twelfthBoard"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., CBSE, MP Board"
                     />
                   </div>
@@ -606,10 +722,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Year
                     </label>
-
                     <input
                       name="twelfthYear"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 2022"
                     />
                   </div>
@@ -618,10 +733,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Percentage
                     </label>
-
                     <input
                       name="twelfthPercentage"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 70%"
                     />
                   </div>
@@ -636,10 +750,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       University
                     </label>
-
                     <input
                       name="gradUniversity"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="University name"
                     />
                   </div>
@@ -648,10 +761,9 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Year
                     </label>
-
                     <input
                       name="gradYear"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 2024"
                     />
                   </div>
@@ -660,17 +772,15 @@ export default function AdmissionPage() {
                     <label className="block text-sm font-medium text-foreground mb-1">
                       Percentage
                     </label>
-
                     <input
                       name="gradPercentage"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 65%"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Document Upload */}
               <div className="bg-white rounded-xl border border-border p-6">
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Upload Documents
@@ -681,171 +791,34 @@ export default function AdmissionPage() {
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Passport Photo
-                    </label>
+                  {[
+                    ["photo", "Passport Photo", "image/*"],
+                    ["aadhaar", "Aadhaar Card", "image/*,.pdf"],
+                    ["tenthMarksheet", "10th Marksheet", "image/*,.pdf"],
+                    ["twelfthMarksheet", "12th Marksheet", "image/*,.pdf"],
+                    [
+                      "gradMarksheet",
+                      "Graduation Marksheet (Optional)",
+                      "image/*,.pdf",
+                    ],
+                    ["otherDoc", "Other Document (Optional)", "image/*,.pdf"],
+                  ].map(([name, label, accept]) => (
+                    <div key={name}>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        {label}
+                      </label>
 
-                    <input
-                      type="file"
-                      name="photo"
-                      accept="image/*"
-                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Aadhaar Card
-                    </label>
-
-                    <input
-                      type="file"
-                      name="aadhaar"
-                      accept="image/*,.pdf"
-                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      10th Marksheet
-                    </label>
-
-                    <input
-                      type="file"
-                      name="tenthMarksheet"
-                      accept="image/*,.pdf"
-                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      12th Marksheet
-                    </label>
-
-                    <input
-                      type="file"
-                      name="twelfthMarksheet"
-                      accept="image/*,.pdf"
-                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Graduation Marksheet (Optional)
-                    </label>
-
-                    <input
-                      type="file"
-                      name="gradMarksheet"
-                      accept="image/*,.pdf"
-                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Other Document (Optional)
-                    </label>
-
-                    <input
-                      type="file"
-                      name="otherDoc"
-                      accept="image/*,.pdf"
-                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment */}
-              <div className="bg-white rounded-xl border border-border p-6">
-                <div className="text-center">
-                  <h2 className="text-xl font-bold text-foreground mb-2">
-                    Complete Your Payment
-                  </h2>
-
-                  <p className="text-sm text-muted max-w-xl mx-auto mb-6">
-                    Scan the QR code below using any UPI app and make your
-                    payment. You may pay any amount you wish.
-                  </p>
-
-                  <div className="flex justify-center mb-6">
-                    <div className="bg-white border border-border rounded-2xl p-4 shadow-sm">
-                      <Image
-                        src="/images/aiit-qr.jpeg"
-                        alt="AIIT payment QR code"
-                        width={320}
-                        height={320}
-                        className="w-[260px] h-[260px] sm:w-[320px] sm:h-[320px] object-contain"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="max-w-xl mx-auto text-left">
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-                      <p className="text-sm font-medium text-blue-900 mb-1">
-                        After payment
-                      </p>
-
-                      <p className="text-sm text-blue-800">
-                        Upload a screenshot showing your successful
-                        transaction. Your application cannot be submitted
-                        without this screenshot.
-                      </p>
-                    </div>
-
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Payment Screenshot{" "}
-                      <span className="text-red-500">*</span>
-                    </label>
-
-                    <div className="border-2 border-dashed border-border rounded-xl p-5">
                       <input
                         type="file"
-                        name="paymentScreenshot"
-                        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                        required
-                        onChange={handlePaymentScreenshotChange}
+                        name={name}
+                        accept={accept}
                         className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
                       />
-
-                      <p className="text-xs text-muted mt-2">
-                        JPG, PNG or WebP · Maximum 5MB
-                      </p>
-
-                      {paymentPreview && (
-                        <div className="mt-5">
-                          <p className="text-sm font-medium text-green-700 mb-3">
-                            Payment screenshot uploaded
-                          </p>
-
-                          <div className="border border-border rounded-xl p-3 bg-background">
-                            <Image
-                              src={paymentPreview}
-                              alt="Payment screenshot preview"
-                              width={600}
-                              height={800}
-                              className="max-h-[500px] w-auto max-w-full mx-auto rounded-lg object-contain"
-                              unoptimized
-                            />
-                          </div>
-                        </div>
-                      )}
                     </div>
-
-                    <p className="text-xs text-muted mt-3">
-                      Payment verification is done manually using the uploaded
-                      transaction screenshot.
-                    </p>
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Declaration */}
               <div className="bg-white rounded-xl border border-border p-6">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
@@ -864,11 +837,10 @@ export default function AdmissionPage() {
                 </label>
               </div>
 
-              {/* Submit */}
               <div className="flex justify-center">
                 <button
                   type="submit"
-                  disabled={loading || !paymentScreenshot}
+                  disabled={loading}
                   className="px-10 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-lg"
                 >
                   {loading ? "Submitting..." : "Submit Application"}

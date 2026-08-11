@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { applications, documents } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { generateApplicationId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
@@ -35,35 +35,137 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    const paymentScreenshot = formData.get("paymentScreenshot");
+    /*
+     * ============================================================
+     * MODE 1: PAYMENT SCREENSHOT UPLOAD
+     * ============================================================
+     *
+     * If applicationId is provided, this request is only for
+     * uploading the payment screenshot after the application
+     * has already been submitted.
+     */
 
-    if (!(paymentScreenshot instanceof File) || paymentScreenshot.size === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Payment screenshot is required before submitting the application.",
-        },
-        { status: 400 }
+    const existingApplicationId = formData.get("applicationId");
+
+    if (
+      typeof existingApplicationId === "string" &&
+      existingApplicationId.trim() !== ""
+    ) {
+      const applicationId = existingApplicationId.trim();
+
+      const paymentScreenshot = formData.get("paymentScreenshot");
+
+      if (
+        !(paymentScreenshot instanceof File) ||
+        paymentScreenshot.size === 0
+      ) {
+        return NextResponse.json(
+          {
+            error: "Payment screenshot is required.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!allowedPaymentTypes.includes(paymentScreenshot.type)) {
+        return NextResponse.json(
+          {
+            error: "Payment screenshot must be JPG, PNG, or WebP.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (paymentScreenshot.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          {
+            error: "Payment screenshot must be less than 5MB.",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Confirm the application exists.
+      const existingApplication = await db
+        .select()
+        .from(applications)
+        .where(eq(applications.applicationId, applicationId));
+
+      if (existingApplication.length === 0) {
+        return NextResponse.json(
+          {
+            error: "Application not found.",
+          },
+          { status: 404 }
+        );
+      }
+
+      const paymentExtension =
+        paymentScreenshot.type === "image/png"
+          ? "png"
+          : paymentScreenshot.type === "image/webp"
+            ? "webp"
+            : "jpg";
+
+      const paymentObjectPath =
+        `${applicationId}/payment-screenshot.${paymentExtension}`;
+
+      const paymentBuffer = Buffer.from(
+        await paymentScreenshot.arrayBuffer()
       );
+
+      /*
+       * Use upsert here so the applicant can replace an incorrect
+       * screenshot if necessary.
+       */
+      const { error: paymentUploadError } =
+        await supabase.storage
+          .from("payment-screenshots")
+          .upload(paymentObjectPath, paymentBuffer, {
+            contentType: paymentScreenshot.type,
+            upsert: true,
+          });
+
+      if (paymentUploadError) {
+        console.error(
+          "Payment screenshot upload error:",
+          paymentUploadError
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Failed to upload payment screenshot. Please try again.",
+          },
+          { status: 500 }
+        );
+      }
+
+      // Update the existing application.
+      const updated = await db
+        .update(applications)
+        .set({
+          paymentScreenshotPath: paymentObjectPath,
+          paymentScreenshotUploadedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(applications.applicationId, applicationId))
+        .returning();
+
+      return NextResponse.json({
+        success: true,
+        applicationId,
+        application: updated[0],
+      });
     }
 
-    if (!allowedPaymentTypes.includes(paymentScreenshot.type)) {
-      return NextResponse.json(
-        {
-          error: "Payment screenshot must be JPG, PNG, or WebP.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (paymentScreenshot.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        {
-          error: "Payment screenshot must be less than 5MB.",
-        },
-        { status: 400 }
-      );
-    }
+    /*
+     * ============================================================
+     * MODE 2: CREATE NEW APPLICATION
+     * ============================================================
+     *
+     * Payment is NOT required here anymore.
+     */
 
     if (formData.get("declaration") !== "true") {
       return NextResponse.json(
@@ -74,85 +176,84 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const applicationId = generateApplicationId();
+    const courseIdValue = formData.get("courseId");
 
-    const paymentExtension =
-      paymentScreenshot.type === "image/png"
-        ? "png"
-        : paymentScreenshot.type === "image/webp"
-          ? "webp"
-          : "jpg";
-
-    const paymentObjectPath = `${applicationId}/payment-screenshot.${paymentExtension}`;
-
-    const paymentBuffer = Buffer.from(
-      await paymentScreenshot.arrayBuffer()
-    );
-
-    const { error: paymentUploadError } = await supabase.storage
-      .from("payment-screenshots")
-      .upload(paymentObjectPath, paymentBuffer, {
-        contentType: paymentScreenshot.type,
-        upsert: false,
-      });
-
-    if (paymentUploadError) {
-      console.error(
-        "Payment screenshot upload error:",
-        paymentUploadError
-      );
-
+    if (!courseIdValue) {
       return NextResponse.json(
         {
-          error:
-            "Failed to upload payment screenshot. Please try again.",
+          error: "Please select a course.",
         },
-        { status: 500 }
+        { status: 400 }
       );
     }
+
+    const applicationId = generateApplicationId();
 
     const newApp = await db
       .insert(applications)
       .values({
         applicationId,
-        courseId: parseInt(formData.get("courseId") as string),
+
+        courseId: parseInt(courseIdValue as string),
+
         universityId: formData.get("universityId")
           ? parseInt(formData.get("universityId") as string)
           : null,
+
         studyMode: formData.get("studyMode") as string,
+
         firstName: formData.get("firstName") as string,
         lastName: (formData.get("lastName") as string) || "",
+
         fatherName: formData.get("fatherName") as string,
         motherName: formData.get("motherName") as string,
+
         dob: formData.get("dob") as string,
         gender: formData.get("gender") as string,
+
         mobile: formData.get("mobile") as string,
         email: (formData.get("email") as string) || "",
+
         address: formData.get("address") as string,
         city: formData.get("city") as string,
         state: formData.get("state") as string,
         pinCode: formData.get("pinCode") as string,
-        tenthBoard: (formData.get("tenthBoard") as string) || "",
-        tenthYear: (formData.get("tenthYear") as string) || "",
+
+        tenthBoard:
+          (formData.get("tenthBoard") as string) || "",
+        tenthYear:
+          (formData.get("tenthYear") as string) || "",
         tenthPercentage:
           (formData.get("tenthPercentage") as string) || "",
+
         twelfthBoard:
           (formData.get("twelfthBoard") as string) || "",
         twelfthYear:
           (formData.get("twelfthYear") as string) || "",
         twelfthPercentage:
           (formData.get("twelfthPercentage") as string) || "",
+
         gradUniversity:
           (formData.get("gradUniversity") as string) || "",
-        gradYear: (formData.get("gradYear") as string) || "",
+        gradYear:
+          (formData.get("gradYear") as string) || "",
         gradPercentage:
           (formData.get("gradPercentage") as string) || "",
-        paymentScreenshotPath: paymentObjectPath,
-        paymentScreenshotUploadedAt: new Date(),
+
+        // Payment is intentionally empty at this stage.
+        paymentScreenshotPath: null,
+        paymentScreenshotUploadedAt: null,
+
         status: "pending",
         declaration: true,
       })
       .returning();
+
+    /*
+     * ============================================================
+     * UPLOAD APPLICATION DOCUMENTS
+     * ============================================================
+     */
 
     const fileFields = [
       "photo",
@@ -166,17 +267,27 @@ export async function POST(req: NextRequest) {
     for (const field of fileFields) {
       const file = formData.get(field) as File | null;
 
-      if (file && file.size > 0) {
-        if (file.size > MAX_FILE_SIZE) {
-          console.error(`File too large: ${field}`);
-          continue;
-        }
+      if (!file || file.size === 0) {
+        continue;
+      }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const ext = file.name.split(".").pop() || "pdf";
-        const objectPath = `${applicationId}/${field}.${ext}`;
+      if (file.size > MAX_FILE_SIZE) {
+        console.error(`File too large: ${field}`);
+        continue;
+      }
 
-        const { error: uploadError } = await supabase.storage
+      const buffer = Buffer.from(
+        await file.arrayBuffer()
+      );
+
+      const ext =
+        file.name.split(".").pop()?.toLowerCase() || "pdf";
+
+      const objectPath =
+        `${applicationId}/${field}.${ext}`;
+
+      const { error: uploadError } =
+        await supabase.storage
           .from("documents")
           .upload(objectPath, buffer, {
             contentType:
@@ -184,24 +295,32 @@ export async function POST(req: NextRequest) {
             upsert: true,
           });
 
-        if (uploadError) {
-          console.error("Document upload error:", uploadError);
-          continue;
-        }
+      if (uploadError) {
+        console.error(
+          `Document upload error (${field}):`,
+          uploadError
+        );
+        continue;
+      }
 
-        const { data: publicUrl } = supabase.storage
+      const { data: publicUrl } =
+        supabase.storage
           .from("documents")
           .getPublicUrl(objectPath);
 
-        await db.insert(documents).values({
-          applicationId,
-          docType: field,
-          fileName: file.name,
-          filePath: publicUrl.publicUrl,
-          fileSize: file.size,
-        });
-      }
+      await db.insert(documents).values({
+        applicationId,
+        docType: field,
+        fileName: file.name,
+        filePath: publicUrl.publicUrl,
+        fileSize: file.size,
+      });
     }
+
+    /*
+     * Application is now created.
+     * Applicant will see the pending page and payment QR.
+     */
 
     return NextResponse.json({
       success: true,
@@ -209,10 +328,15 @@ export async function POST(req: NextRequest) {
       application: newApp[0],
     });
   } catch (error) {
-    console.error("Error submitting application:", error);
+    console.error(
+      "Error processing application:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Failed to submit application" },
+      {
+        error: "Failed to process application",
+      },
       { status: 500 }
     );
   }
