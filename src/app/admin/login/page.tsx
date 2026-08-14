@@ -96,7 +96,6 @@ export default function AdminLoginPage() {
           </form>
 
           <p className="text-xs text-muted text-center mt-4">
-            Default: dr.radhesir@gmail.com / AIITRSYJKM
           </p>
         </div>
 
