@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                placeholder="admin@aiitcollege.edu.in"
+                placeholder="dr.radhesir@gmail.com"
               />
             </div>
             <div>
@@ -96,7 +96,7 @@ export default function AdminLoginPage() {
           </form>
 
           <p className="text-xs text-muted text-center mt-4">
-            Default: admin@aiitcollege.edu.in / admin123
+            Default: dr.radhesir@gmail.com / AIITRSYJKM
           </p>
         </div>
 

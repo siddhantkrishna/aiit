@@ -80,11 +80,11 @@ export async function seedDatabase() {
   }
 
   // Seed admin
-  const existingAdmin = await db.select().from(admin).where(eq(admin.email, "admin@aiitcollege.edu.in"));
+  const existingAdmin = await db.select().from(admin).where(eq(admin.email, "dr.radhesir@gmail.com"));
   if (existingAdmin.length === 0) {
-    const hashedPassword = await bcrypt.hash("admin123", 10);
+    const hashedPassword = await bcrypt.hash("AIITRSYJKM", 10);
     await db.insert(admin).values({
-      email: "admin@aiitcollege.edu.in",
+      email: "dr.radhesir@gmail.com",
       password: hashedPassword,
       name: "Admin",
     });
