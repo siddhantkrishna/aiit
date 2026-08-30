@@ -31,7 +31,7 @@ export default function VacancyApplicationForm({ vacancyId, title }: { vacancyId
   return <form onSubmit={submit} className="bg-white border border-border rounded-2xl p-6 md:p-8 space-y-6">
     {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
     <div className="grid sm:grid-cols-2 gap-5">
-      {fields.map(([name, label, type, required]) => <label key={name} className={`text-sm font-medium text-foreground ${name === "address" ? "sm:col-span-2" : ""}`}>{label}{required ? " *" : ""}<input name={name} required={required} type={type} className="mt-2 w-full rounded-lg border border-border px-3 py-2.5 outline-none focus:border-primary"/></label>)}
+      {fields.map(([name, label, type, required]) => <label key={name} className={`text-sm font-medium text-foreground ${name === "address" ? "sm:col-span-2" : ""}`}>{label}{required ? " *" : ""}<input name={name} required={required} type={type} className="mt-2 w-full rounded-lg border border-border px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"/></label>)}
       <label className="sm:col-span-2 text-sm font-medium text-foreground">Resume *<input name="resume" required type="file" accept=".pdf,.doc,.docx,application/pdf" className="mt-2 block w-full rounded-lg border border-border px-3 py-2.5"/><span className="mt-1 block text-xs text-muted">PDF, DOC or DOCX up to 5MB.</span></label>
     </div>
     <label className="flex gap-3 text-sm text-muted"><input required type="checkbox" className="mt-1"/>I confirm that the information provided is accurate and complete.</label>
