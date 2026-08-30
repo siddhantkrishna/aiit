@@ -97,6 +97,26 @@ export const vacancies = pgTable("vacancies", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const vacancyApplications = pgTable("vacancy_applications", {
+  id: serial("id").primaryKey(),
+  applicationId: varchar("application_id", { length: 50 }).notNull().unique(),
+  vacancyId: integer("vacancy_id").notNull(),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }),
+  mobile: varchar("mobile", { length: 15 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  qualification: text("qualification"),
+  experience: text("experience"),
+  resumePath: text("resume_path"),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  declaration: boolean("declaration").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const admin = pgTable("admin", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
