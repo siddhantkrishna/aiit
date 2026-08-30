@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 
 const quickLinks = [
@@ -8,6 +8,7 @@ const quickLinks = [
   { href: "/admission", label: "Apply Now" },
   { href: "/status", label: "Check Status" },
   { href: "/contact", label: "Contact Us" },
+  { href: "/vacancies", label: "Careers & Vacancies" },
 ];
 
 export default function Footer() {
