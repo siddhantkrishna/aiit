@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { universities, courses, admin } from "./schema";
+import { universities, courses, admin, vacancies } from "./schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -77,6 +77,19 @@ export async function seedDatabase() {
       { name: "Graphic Design", fullName: "Graphic Design & Multimedia", duration: "6 Months", eligibility: "12th Pass", studyMode: "Regular", category: "Professional" },
     ];
     await db.insert(courses).values(courseData.map(c => ({ ...c, enabled: true })));
+  }
+
+  // Seed vacancies
+  const existingVacancies = await db.select().from(vacancies);
+  if (existingVacancies.length === 0) {
+    await db.insert(vacancies).values([
+      { title: "Peon", slug: "peon", department: "Administration & Support", employmentType: "Full-time", location: "AIIT College", openings: 1, description: "Support day-to-day college operations and maintain a clean, organized campus environment.", responsibilities: "Office support, campus assistance, document movement, basic errands, and general support duties.", qualifications: "Minimum 8th pass; responsible and physically fit.", experience: "Freshers may apply", salary: "As per institution norms", enabled: true },
+      { title: "Software Developer", slug: "software-developer", department: "Information Technology", employmentType: "Full-time", location: "AIIT College", openings: 1, description: "Build and maintain software systems that support academic and administrative operations.", responsibilities: "Develop features, maintain applications, troubleshoot issues, collaborate with staff, and follow coding best practices.", qualifications: "BCA, MCA, B.Tech, or equivalent technical qualification.", experience: "1+ years preferred", salary: "As per experience and institution norms", enabled: true },
+      { title: "Teacher", slug: "teacher", department: "Academic", employmentType: "Full-time", location: "AIIT College", openings: 2, description: "Teach assigned subjects and contribute to a strong, student-focused learning environment.", responsibilities: "Prepare lessons, prepare classes, assess students, maintain records, and support academic activities.", qualifications: "Relevant graduate/postgraduate degree; teaching qualification preferred.", experience: "1+ years preferred", salary: "As per qualification and institution norms", enabled: true },
+      { title: "Assistant Teacher", slug: "assistant-teacher", department: "Academic", employmentType: "Full-time", location: "AIIT College", openings: 2, description: "Support teachers and students in classroom and academic activities.", responsibilities: "Assist with lesson preparation, classroom management, student support, records, and academic coordination.", qualifications: "Relevant graduate degree; teaching experience or qualification preferred.", experience: "Freshers may apply", salary: "As per institution norms", enabled: true },
+      { title: "Receptionist", slug: "receptionist", department: "Front Office", employmentType: "Full-time", location: "AIIT College", openings: 1, description: "Be the first point of contact for students, parents, visitors, and callers.", responsibilities: "Handle calls and visitors, provide information, maintain front-office records, and coordinate enquiries.", qualifications: "12th pass or graduate with good communication and basic computer skills.", experience: "1+ years preferred", salary: "As per institution norms", enabled: true },
+      { title: "Manager", slug: "manager", department: "Administration", employmentType: "Full-time", location: "AIIT College", openings: 1, description: "Coordinate administrative operations and help ensure efficient day-to-day functioning of the institution.", responsibilities: "Supervise operations, coordinate staff, manage records, support admissions and administration, and report to management.", qualifications: "Graduate degree; management or administrative experience preferred.", experience: "2+ years preferred", salary: "As per experience and institution norms", enabled: true }
+    ]);
   }
 
   // Seed admin
