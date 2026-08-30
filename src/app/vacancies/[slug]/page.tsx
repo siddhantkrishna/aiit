@@ -30,7 +30,7 @@ export default async function VacancyDetailPage({ params }: { params: Promise<{ 
         <div className="bg-white border border-border rounded-xl p-6"><h2 className="text-lg font-bold mb-3">Responsibilities</h2><p className="text-muted leading-relaxed whitespace-pre-line">{job.responsibilities}</p></div>
         <div className="bg-white border border-border rounded-xl p-6"><h2 className="text-lg font-bold mb-3">Qualifications</h2><p className="text-muted leading-relaxed whitespace-pre-line">{job.qualifications}</p></div>
       </div>
-      <aside className="bg-white border border-border rounded-xl p-6 h-fit"><p className="text-sm text-muted">Experience</p><p className="font-semibold mt-1">{job.experience}</p><p className="text-sm text-muted mt-5">Salary</p><p className="font-semibold mt-1">{job.salary}</p><Link href={`/vacancies/${job.slug}/apply`} className="block mt-7 text-center px-5 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">Apply for this role</Link></aside>
+      <aside className="bg-white border border-border rounded-xl p-6 h-fit lg:sticky lg:top-24"><p className="text-sm text-muted">Experience</p><p className="font-semibold mt-1">{job.experience}</p><p className="text-sm text-muted mt-5">Salary</p><p className="font-semibold mt-1">{job.salary}</p><Link href={`/vacancies/${job.slug}/apply`} className="block mt-7 text-center px-5 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">Apply for this role</Link></aside>
     </div></section>
   </main><Footer/></>;
 }
