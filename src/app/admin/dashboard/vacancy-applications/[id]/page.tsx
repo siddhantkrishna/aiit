@@ -1,0 +1,16 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+
+type Data={application:{applicationId:string;firstName:string;lastName:string|null;mobile:string;email:string;address:string|null;city:string|null;state:string|null;qualification:string|null;experience:string|null;status:string;resumePath:string|null};vacancy:{title:string}|null};
+
+export default function VacancyApplicationDetailPage(){
+  const params=useParams(); const router=useRouter(); const [data,setData]=useState<Data|null>(null); const [loading,setLoading]=useState(true); const id=params.id as string;
+  useEffect(()=>{fetch(`/api/admin/vacancy-applications/${id}`).then(r=>r.ok?r.json():null).then(d=>{setData(d);setLoading(false)}).catch(()=>setLoading(false))},[id]);
+  async function update(status:string){const r=await fetch("/api/admin/vacancy-applications",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status})});if(r.ok){const d=await fetch(`/api/admin/vacancy-applications/${id}`);setData(await d.json())}}
+  if(loading)return <div className="py-20 text-center text-muted">Loading application...</div>;
+  if(!data)return <div className="py-20 text-center"><p className="text-muted">Application not found.</p><button onClick={()=>router.back()} className="mt-3 text-primary">← Go back</button></div>;
+  const a=data.application,v=data.vacancy;
+  return <div className="max-w-4xl mx-auto"><button onClick={()=>router.back()} className="text-sm text-muted hover:text-primary mb-3">← Back to applications</button><div className="flex flex-wrap items-end justify-between gap-4 mb-6"><div><p className="text-sm text-primary font-semibold">{a.applicationId}</p><h1 className="text-2xl font-bold">{a.firstName} {a.lastName}</h1><p className="text-muted text-sm mt-1">Applied for {v?.title}</p></div><div className="flex flex-wrap gap-2">{["reviewed","shortlisted","rejected","hired"].map(s=><button key={s} onClick={()=>update(s)} className="px-3 py-2 rounded-lg border border-border bg-white text-xs font-medium hover:bg-blue-50">{s}</button>)}</div></div><div className="grid lg:grid-cols-2 gap-4"><section className="bg-white border border-border rounded-xl p-6"><h2 className="font-bold mb-4">Applicant Details</h2><div className="space-y-3 text-sm"><p><span className="text-muted">Mobile:</span> {a.mobile}</p><p><span className="text-muted">Email:</span> {a.email}</p><p><span className="text-muted">Address:</span> {a.address||"N/A"}</p><p><span className="text-muted">City:</span> {a.city||"N/A"}</p><p><span className="text-muted">State:</span> {a.state||"N/A"}</p></div></section><section className="bg-white border border-border rounded-xl p-6"><h2 className="font-bold mb-4">Professional Details</h2><div className="space-y-3 text-sm"><p><span className="text-muted">Qualification:</span> {a.qualification||"N/A"}</p><p><span className="text-muted">Experience:</span> {a.experience||"N/A"}</p><p><span className="text-muted">Status:</span> {a.status}</p>{a.resumePath&&<a href={a.resumePath} target="_blank" rel="noopener noreferrer" className="inline-flex mt-2 px-4 py-2 bg-primary text-white rounded-lg text-sm">Open Resume</a>}</div></section></div></div>;
+}
