@@ -17,6 +17,16 @@ const sidebarLinks = [
     icon: "📋",
   },
   {
+    href: "/admin/dashboard/vacancies",
+    label: "Vacancies",
+    icon: "💼",
+  },
+  {
+    href: "/admin/dashboard/vacancy-applications",
+    label: "Recruitment",
+    icon: "👥",
+  },
+  {
     href: "/admin/dashboard/courses",
     label: "Courses",
     icon: "📚",
