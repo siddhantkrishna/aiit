@@ -26,7 +26,7 @@ export default async function VacanciesPage() {
         <p className="text-xs font-semibold text-primary uppercase tracking-wider">{job.department || "AIIT College"}</p>
         <h3 className="text-xl font-bold mt-2">{job.title}</h3>
         <p className="text-sm text-muted mt-4">{job.employmentType || "Full-time"} · {job.location || "AIIT College"}</p>
-        <p className="text-sm text-muted mt-2">{job.openings} opening{job.openings === 1 ? "" : "s"} · {job.experience || "Experience varies"}</p>
+        <div className="flex flex-wrap gap-2 mt-3"><span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{job.openings} opening{job.openings === 1 ? "" : "s"}</span><span className="px-2.5 py-1 rounded-full bg-gray-50 text-muted text-xs font-medium">{job.experience || "Experience varies"}</span></div>
         <p className="text-sm text-muted leading-relaxed mt-4">{job.description}</p>
         <Link href={`/vacancies/${job.slug}`} className="inline-flex mt-6 px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">View Role →</Link>
       </article>)}</div>}
