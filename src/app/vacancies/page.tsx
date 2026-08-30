@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 
 export default async function VacanciesPage() {
   const jobs = await db.select().from(vacancies).where(eq(vacancies.enabled, true)).orderBy(asc(vacancies.id));
-  return <><Navbar/><main className="bg-background">
+  return <><Navbar/><main className="bg-background" aria-labelledby="vacancies-title">
     <section className="bg-primary-dark text-white"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
       <p className="text-sm font-semibold text-primary-light uppercase tracking-wider mb-3">Careers at AIIT</p>
-      <h1 className="text-4xl md:text-5xl font-bold leading-tight max-w-3xl">Grow your career while shaping the future of education.</h1>
+      <h1 id="vacancies-title" className="text-4xl md:text-5xl font-bold leading-tight max-w-3xl">Grow your career while shaping the future of education.</h1>
       <p className="mt-5 max-w-2xl text-lg text-blue-200">Join the AIIT College team and explore our current opportunities.</p>
     </div></section>
     <section className="py-16 md:py-24"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
