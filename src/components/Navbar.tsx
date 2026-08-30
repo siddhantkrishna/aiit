@@ -11,6 +11,7 @@ const navLinks = [
   { href: "/admission", label: "Admission" },
   { href: "/status", label: "Check Status" },
   { href: "/contact", label: "Contact" },
+  { href: "/vacancies", label: "Vacancies" },
 ];
 
 export default function Navbar() {
