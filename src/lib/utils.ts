@@ -11,6 +11,12 @@ export function generateApplicationId(): string {
   return `AIIT-${year}-${random}`;
 }
 
+export function generateVacancyApplicationId(): string {
+  const year = new Date().getFullYear();
+  const random = Math.floor(100000 + Math.random() * 900000);
+  return `AIIT-VAC-${year}-${random}`;
+}
+
 export function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString("en-IN", {
     year: "numeric",
