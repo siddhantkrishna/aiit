@@ -79,6 +79,24 @@ export const documents = pgTable("documents", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const vacancies = pgTable("vacancies", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  department: varchar("department", { length: 100 }),
+  employmentType: varchar("employment_type", { length: 100 }),
+  location: varchar("location", { length: 255 }),
+  openings: integer("openings").default(1).notNull(),
+  description: text("description"),
+  responsibilities: text("responsibilities"),
+  qualifications: text("qualifications"),
+  experience: varchar("experience", { length: 255 }),
+  salary: varchar("salary", { length: 255 }),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const admin = pgTable("admin", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
