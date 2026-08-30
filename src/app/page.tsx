@@ -402,6 +402,12 @@ export default function HomePage() {
             >
               Contact Us
             </Link>
+            <Link
+              href="/vacancies"
+              className="px-8 py-3 border border-white/30 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors"
+            >
+              View Vacancies
+            </Link>
           </div>
         </div>
       </section>
