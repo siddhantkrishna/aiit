@@ -2,154 +2,212 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
 
-interface AppDetail {
-  application: {
-    id: number;
-    applicationId: string;
-    courseId: number;
-    universityId: number | null;
-    studyMode: string;
-    firstName: string;
-    lastName: string;
-    fatherName: string;
-    motherName: string;
-    dob: string;
-    gender: string;
-    mobile: string;
-    email: string;
-    address: string;
-    city: string;
-    state: string;
-    pinCode: string;
-    tenthBoard: string;
-    tenthYear: string;
-    tenthPercentage: string;
-    twelfthBoard: string;
-    twelfthYear: string;
-    twelfthPercentage: string;
-    gradUniversity: string;
-    gradYear: string;
-    gradPercentage: string;
-    paymentScreenshotPath: string | null;
-    paymentScreenshotUploadedAt: string | null;
-    status: string;
-    declaration: boolean;
-    createdAt: string;
-    updatedAt: string;
-  };
-  documents: Array<{
-    id: number;
-    docType: string;
-    fileName: string;
-    filePath: string;
-    fileSize: number | null;
-  }>;
+type Application = {
+  id: number;
+  applicationId: string;
+  courseId: number;
+  universityId: number | null;
+  studyMode: string;
+  firstName: string;
+  lastName: string;
+  fatherName: string;
+  motherName: string;
+  dob: string;
+  gender: string;
+  mobile: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  tenthBoard: string;
+  tenthYear: string;
+  tenthPercentage: string;
+  twelfthBoard: string;
+  twelfthYear: string;
+  twelfthPercentage: string;
+  gradUniversity: string;
+  gradYear: string;
+  gradPercentage: string;
+  paymentScreenshotPath: string | null;
+  paymentScreenshotUploadedAt: string | null;
+  status: string;
+  applicationStatus: string | null;
+  documentStatus: string | null;
+  verificationStatus: string | null;
+  nextAction: string | null;
+  dueDate: string | null;
+  remarks: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Document = {
+  id: number;
+  docType: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number | null;
+};
+
+type ApplicationResponse = {
+  application: Application;
+  documents: Document[];
+};
+
+const statuses = [
+  "RECEIVED",
+  "UNDER REVIEW",
+  "DOCUMENTS PENDING",
+  "VERIFIED",
+  "SUBMITTED",
+  "APPROVED",
+  "REJECTED",
+  "CANCELLED",
+  "COMPLETED",
+];
+
+function statusClass(status: string) {
+  switch (status) {
+    case "APPROVED":
+    case "VERIFIED":
+    case "COMPLETED":
+      return "bg-green-50 text-green-700 border-green-200";
+
+    case "REJECTED":
+    case "CANCELLED":
+      return "bg-red-50 text-red-700 border-red-200";
+
+    case "DOCUMENTS PENDING":
+    case "UNDER REVIEW":
+    case "SUBMITTED":
+      return "bg-yellow-50 text-yellow-700 border-yellow-200";
+
+    default:
+      return "bg-blue-50 text-blue-700 border-blue-200";
+  }
 }
 
-const statusBadge: Record<string, string> = {
-  pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-};
-
-const docLabels: Record<string, string> = {
-  photo: "Passport Photo",
-  aadhaar: "Aadhaar Card",
-  tenthMarksheet: "10th Marksheet",
-  twelfthMarksheet: "12th Marksheet",
-  gradMarksheet: "Graduation Marksheet",
-  otherDoc: "Other Document",
-};
+function formatStatus(status: string) {
+  return status
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function ApplicationDetailPage() {
   const params = useParams();
   const router = useRouter();
 
-  const [data, setData] = useState<AppDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const rawId = params.id;
+  const applicationId = Array.isArray(rawId) ? rawId[0] : rawId;
 
-  const appId = params.id as string;
+  const [data, setData] = useState<ApplicationResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   async function loadApplication() {
     try {
-      const response = await fetch(`/api/applications/${appId}`);
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `/api/applications/${applicationId}`,
+        {
+          cache: "no-store",
+        },
+      );
 
       if (!response.ok) {
-        setData(null);
-        return;
+        throw new Error("Application not found");
       }
 
       const result = await response.json();
 
-      if (result.application) {
-        setData(result);
-      } else {
-        setData(null);
-      }
-    } catch (error) {
-      console.error("Failed to load application:", error);
+      setData(result);
+    } catch (err) {
+      console.error(err);
       setData(null);
+      setError("Unable to load application.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadApplication();
-  }, [appId]);
-
-  async function updateStatus(status: string) {
-    if (
-      !confirm(
-        `Are you sure you want to ${status} this application?`
-      )
-    ) {
-      return;
+    if (applicationId) {
+      loadApplication();
     }
+  }, [applicationId]);
+
+  async function updateStatus(newStatus: string) {
+    if (!data || saving) return;
+
+    const currentStatus =
+      data.application.applicationStatus ||
+      data.application.status ||
+      "RECEIVED";
+
+    if (currentStatus === newStatus) return;
+
+    const confirmed = window.confirm(
+      `Change application status to "${formatStatus(newStatus)}"?`,
+    );
+
+    if (!confirmed) return;
 
     try {
+      setSaving(true);
+
       const response = await fetch(
-        `/api/applications/${appId}`,
+        `/api/applications/${applicationId}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status }),
-        }
+          body: JSON.stringify({
+            applicationStatus: newStatus,
+          }),
+        },
       );
 
       if (!response.ok) {
-        alert("Failed to update application status.");
-        return;
+        throw new Error("Failed to update");
       }
 
       await loadApplication();
-    } catch {
-      alert("Failed to update application status.");
+    } catch (err) {
+      console.error(err);
+      window.alert("Failed to update application status.");
+    } finally {
+      setSaving(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted">Loading...</p>
+      <div className="flex items-center justify-center py-24">
+        <p className="text-slate-500">
+          Loading application...
+        </p>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="text-center py-20">
-        <p className="text-muted">Application not found</p>
+      <div className="max-w-4xl mx-auto text-center py-24">
+        <p className="text-slate-600">
+          {error || "Application not found."}
+        </p>
 
         <button
           onClick={() => router.back()}
-          className="mt-4 text-primary hover:underline text-sm"
+          className="mt-4 text-blue-600 hover:underline text-sm font-medium"
         >
-          ← Go Back
+          ← Back
         </button>
       </div>
     );
@@ -157,423 +215,301 @@ export default function ApplicationDetailPage() {
 
   const app = data.application;
 
+  const currentStatus =
+    app.applicationStatus ||
+    app.status ||
+    "RECEIVED";
+
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <button
             onClick={() => router.back()}
-            className="text-sm text-muted hover:text-primary mb-2 inline-block"
+            className="text-sm text-slate-500 hover:text-blue-600 mb-3"
           >
             ← Back to Applications
           </button>
 
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-3xl font-bold text-slate-900">
             {app.applicationId}
           </h1>
 
-          <p className="text-muted text-sm">
-            Submitted on{" "}
+          <p className="text-sm text-slate-500 mt-1">
+            Submitted{" "}
             {new Date(app.createdAt).toLocaleDateString(
               "en-IN",
               {
-                year: "numeric",
-                month: "long",
                 day: "numeric",
-              }
+                month: "long",
+                year: "numeric",
+              },
             )}
           </p>
         </div>
 
-        <div className="flex gap-2">
-          {app.status !== "approved" && (
-            <button
-              onClick={() => updateStatus("approved")}
-              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
-            >
-              ✓ Approve
-            </button>
-          )}
-
-          {app.status !== "rejected" && (
-            <button
-              onClick={() => updateStatus("rejected")}
-              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700"
-            >
-              ✕ Reject
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Status */}
-      <div className="mb-6">
         <span
-          className={`inline-block px-4 py-1.5 rounded-full text-sm font-medium border ${
-            statusBadge[app.status] ||
-            statusBadge.pending
-          }`}
+          className={`inline-flex w-fit rounded-full border px-4 py-2 text-sm font-semibold ${statusClass(
+            currentStatus,
+          )}`}
         >
-          Status:{" "}
-          {app.status.charAt(0).toUpperCase() +
-            app.status.slice(1)}
+          {formatStatus(currentStatus)}
         </span>
       </div>
 
-      {/* Payment */}
-      <div className="bg-white rounded-xl border border-border p-6 mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">
-              Payment Verification
-            </h2>
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {statuses.map((status) => (
+            <button
+              key={status}
+              disabled={saving}
+              onClick={() => updateStatus(status)}
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
+                currentStatus === status
+                  ? statusClass(status)
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              } disabled:opacity-50`}
+            >
+              {formatStatus(status)}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            <p className="text-sm text-muted mt-1">
-              Review the payment screenshot submitted by the applicant.
-            </p>
-          </div>
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">
+          Applicant Details
+        </h2>
 
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-medium border ${
-              app.paymentScreenshotPath
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-yellow-50 text-yellow-700 border-yellow-200"
-            }`}
-          >
-            {app.paymentScreenshotPath
-              ? "Payment Screenshot Uploaded"
-              : "Payment Pending"}
-          </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+          <Info label="Full Name">
+            {app.firstName} {app.lastName}
+          </Info>
+
+          <Info label="Father Name">
+            {app.fatherName || "—"}
+          </Info>
+
+          <Info label="Mother Name">
+            {app.motherName || "—"}
+          </Info>
+
+          <Info label="Mobile">
+            {app.mobile || "—"}
+          </Info>
+
+          <Info label="Email">
+            {app.email || "—"}
+          </Info>
+
+          <Info label="Date of Birth">
+            {app.dob || "—"}
+          </Info>
+
+          <Info label="Gender">
+            {app.gender || "—"}
+          </Info>
+
+          <Info label="City">
+            {app.city || "—"}
+          </Info>
+
+          <Info label="State">
+            {app.state || "—"}
+          </Info>
+
+          <Info label="PIN Code">
+            {app.pinCode || "—"}
+          </Info>
         </div>
 
-        {app.paymentScreenshotPath ? (
-          <div className="border border-border rounded-xl p-5">
-            <div className="flex flex-col items-center">
-              <div className="w-full max-w-lg">
-                <Image
-                  src={app.paymentScreenshotPath}
-                  alt="Payment screenshot"
-                  width={600}
-                  height={900}
-                  className="w-full h-auto max-h-[700px] object-contain rounded-lg border border-border"
-                  unoptimized
-                />
-              </div>
+        <div className="mt-6">
+          <Info label="Address">
+            {app.address || "—"}
+          </Info>
+        </div>
+      </section>
 
-              {app.paymentScreenshotUploadedAt && (
-                <p className="text-xs text-muted mt-4">
-                  Uploaded on{" "}
-                  {new Date(
-                    app.paymentScreenshotUploadedAt
-                  ).toLocaleString("en-IN")}
-                </p>
-              )}
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">
+          Academic Details
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-6">
+          <Info label="10th Board">
+            {app.tenthBoard || "—"}
+          </Info>
+
+          <Info label="10th Year">
+            {app.tenthYear || "—"}
+          </Info>
+
+          <Info label="10th Percentage">
+            {app.tenthPercentage || "—"}
+          </Info>
+
+          <Info label="12th Board">
+            {app.twelfthBoard || "—"}
+          </Info>
+
+          <Info label="12th Year">
+            {app.twelfthYear || "—"}
+          </Info>
+
+          <Info label="12th Percentage">
+            {app.twelfthPercentage || "—"}
+          </Info>
+
+          <Info label="Graduation University">
+            {app.gradUniversity || "—"}
+          </Info>
+
+          <Info label="Graduation Year">
+            {app.gradYear || "—"}
+          </Info>
+
+          <Info label="Graduation Percentage">
+            {app.gradPercentage || "—"}
+          </Info>
+        </div>
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">
+          Application Information
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+          <Info label="Course ID">
+            {app.courseId}
+          </Info>
+
+          <Info label="University ID">
+            {app.universityId ?? "—"}
+          </Info>
+
+          <Info label="Study Mode">
+            {app.studyMode || "—"}
+          </Info>
+
+          <Info label="Document Status">
+            {app.documentStatus || "PENDING"}
+          </Info>
+
+          <Info label="Verification">
+            {app.verificationStatus || "PENDING"}
+          </Info>
+
+          <Info label="Next Action">
+            {app.nextAction || "—"}
+          </Info>
+
+          <Info label="Due Date">
+            {app.dueDate || "—"}
+          </Info>
+
+          <Info label="Declaration">
+            {app.declaration ? "Accepted" : "Not Accepted"}
+          </Info>
+        </div>
+
+        {app.remarks && (
+          <div className="mt-6">
+            <Info label="Remarks">
+              {app.remarks}
+            </Info>
+          </div>
+        )}
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">
+          Documents
+        </h2>
+
+        {data.documents.length === 0 ? (
+          <p className="text-sm text-slate-500 mt-5">
+            No documents uploaded.
+          </p>
+        ) : (
+          <div className="mt-5 divide-y divide-slate-100">
+            {data.documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-4"
+              >
+                <div>
+                  <p className="font-medium text-slate-900">
+                    {doc.fileName}
+                  </p>
+
+                  <p className="text-xs text-slate-500 mt-1">
+                    {doc.docType}
+                  </p>
+                </div>
+
+                <a
+                  href={doc.filePath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-fit px-4 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-blue-600 hover:bg-blue-50"
+                >
+                  View Document
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">
+          Payment
+        </h2>
+
+        <div className="mt-5">
+          {app.paymentScreenshotPath ? (
+            <div className="space-y-3">
+              <p className="text-sm text-green-600 font-medium">
+                Payment screenshot uploaded
+              </p>
 
               <a
                 href={app.paymentScreenshotPath}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 px-5 py-2.5 border border-border rounded-lg text-sm font-medium text-primary hover:bg-gray-50"
+                className="inline-flex px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
               >
-                View Full Screenshot
+                View Payment Screenshot
               </a>
             </div>
-          </div>
-        ) : (
-          <div className="border border-dashed border-yellow-300 bg-yellow-50 rounded-xl p-8 text-center">
-            <p className="text-sm font-medium text-yellow-800">
-              Payment screenshot has not been uploaded yet.
+          ) : (
+            <p className="text-sm text-slate-500">
+              No payment screenshot uploaded.
             </p>
-
-            <p className="text-xs text-yellow-700 mt-1">
-              The applicant can upload it from the payment section after
-              submitting the application.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Personal Details */}
-      <div className="bg-white rounded-xl border border-border p-6 mb-4">
-        <h2 className="text-lg font-bold text-foreground mb-4">
-          Personal Details
-        </h2>
-
-        <div className="grid sm:grid-cols-2 gap-y-3 gap-x-8 text-sm">
-          <div>
-            <span className="text-muted">Name:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.firstName} {app.lastName}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">
-              Father&apos;s Name:
-            </span>{" "}
-            <span className="font-medium ml-1">
-              {app.fatherName}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">
-              Mother&apos;s Name:
-            </span>{" "}
-            <span className="font-medium ml-1">
-              {app.motherName}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">
-              Date of Birth:
-            </span>{" "}
-            <span className="font-medium ml-1">
-              {app.dob}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">Gender:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.gender}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">Mobile:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.mobile}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">Email:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.email || "N/A"}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">
-              Study Mode:
-            </span>{" "}
-            <span className="font-medium ml-1">
-              {app.studyMode || "N/A"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="bg-white rounded-xl border border-border p-6 mb-4">
-        <h2 className="text-lg font-bold text-foreground mb-4">
-          Address
-        </h2>
-
-        <div className="grid sm:grid-cols-2 gap-y-3 gap-x-8 text-sm">
-          <div className="sm:col-span-2">
-            <span className="text-muted">Address:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.address}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">City:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.city}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">State:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.state}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-muted">PIN Code:</span>{" "}
-            <span className="font-medium ml-1">
-              {app.pinCode}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Education */}
-      <div className="bg-white rounded-xl border border-border p-6 mb-4">
-        <h2 className="text-lg font-bold text-foreground mb-4">
-          Education Details
-        </h2>
-
-        <div className="space-y-4 text-sm">
-          <div>
-            <h3 className="font-semibold text-primary mb-1">
-              10th (High School)
-            </h3>
-
-            <div className="grid sm:grid-cols-3 gap-2">
-              <div>
-                <span className="text-muted">Board:</span>{" "}
-                <span className="font-medium ml-1">
-                  {app.tenthBoard || "N/A"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-muted">Year:</span>{" "}
-                <span className="font-medium ml-1">
-                  {app.tenthYear || "N/A"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-muted">
-                  Percentage:
-                </span>{" "}
-                <span className="font-medium ml-1">
-                  {app.tenthPercentage || "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-primary mb-1">
-              12th (Intermediate)
-            </h3>
-
-            <div className="grid sm:grid-cols-3 gap-2">
-              <div>
-                <span className="text-muted">Board:</span>{" "}
-                <span className="font-medium ml-1">
-                  {app.twelfthBoard || "N/A"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-muted">Year:</span>{" "}
-                <span className="font-medium ml-1">
-                  {app.twelfthYear || "N/A"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-muted">
-                  Percentage:
-                </span>{" "}
-                <span className="font-medium ml-1">
-                  {app.twelfthPercentage || "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {(app.gradUniversity ||
-            app.gradYear ||
-            app.gradPercentage) && (
-            <div>
-              <h3 className="font-semibold text-primary mb-1">
-                Graduation
-              </h3>
-
-              <div className="grid sm:grid-cols-3 gap-2">
-                <div>
-                  <span className="text-muted">
-                    University:
-                  </span>{" "}
-                  <span className="font-medium ml-1">
-                    {app.gradUniversity || "N/A"}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-muted">Year:</span>{" "}
-                  <span className="font-medium ml-1">
-                    {app.gradYear || "N/A"}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-muted">
-                    Percentage:
-                  </span>{" "}
-                  <span className="font-medium ml-1">
-                    {app.gradPercentage || "N/A"}
-                  </span>
-                </div>
-              </div>
-            </div>
           )}
         </div>
-      </div>
+      </section>
+    </div>
+  );
+}
 
-      {/* Documents */}
-      <div className="bg-white rounded-xl border border-border p-6 mb-4">
-        <h2 className="text-lg font-bold text-foreground mb-4">
-          Uploaded Documents
-        </h2>
+function Info({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
 
-        {data.documents.length === 0 ? (
-          <div className="border border-dashed border-border rounded-xl p-8 text-center">
-            <p className="text-sm text-muted">
-              No documents uploaded.
-            </p>
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.documents.map((doc) => {
-              const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(
-                doc.filePath
-              );
-
-              return (
-                <div
-                  key={doc.id}
-                  className="border border-border rounded-lg p-3"
-                >
-                  <p className="text-xs font-medium text-muted mb-2">
-                    {docLabels[doc.docType] ||
-                      doc.docType}
-                  </p>
-
-                  {isImage ? (
-                    <Image
-                      src={doc.filePath}
-                      alt={doc.docType}
-                      width={200}
-                      height={150}
-                      className="rounded-lg object-cover w-full h-32"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center">
-                      <span className="text-3xl">PDF</span>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-muted mt-2 truncate">
-                    {doc.fileName}
-                  </p>
-
-                  <a
-                    href={doc.filePath}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block mt-2 text-xs text-primary hover:underline text-center"
-                  >
-                    View / Download
-                  </a>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <p className="mt-1 text-sm text-slate-800 break-words">
+        {children}
+      </p>
     </div>
   );
 }

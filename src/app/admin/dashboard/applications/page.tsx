@@ -1,169 +1,295 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
-interface Application {
+type Application = {
   id: number;
   applicationId: string;
   firstName: string;
-  lastName: string;
+  lastName?: string | null;
   mobile: string;
-  courseId: number;
-  universityId: number | null;
-  status: string;
+  email?: string | null;
+  status?: string | null;
+  applicationStatus?: string | null;
+  courseId?: number | null;
+  universityId?: number | null;
   createdAt: string;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  RECEIVED: "Received",
+  "UNDER REVIEW": "Under Review",
+  "DOCUMENTS PENDING": "Documents Pending",
+  VERIFIED: "Verified",
+  SUBMITTED: "Submitted",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  CANCELLED: "Cancelled",
+  COMPLETED: "Completed",
+  pending: "Pending",
+};
+
+function getStatus(application: Application) {
+  return application.applicationStatus || application.status || "pending";
 }
 
-const statusBadge: Record<string, string> = {
-  pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-};
+function statusClass(status: string) {
+  switch (status) {
+    case "APPROVED":
+    case "COMPLETED":
+    case "VERIFIED":
+      return "bg-green-100 text-green-700";
+
+    case "REJECTED":
+    case "CANCELLED":
+      return "bg-red-100 text-red-700";
+
+    case "DOCUMENTS PENDING":
+    case "SUBMITTED":
+    case "UNDER REVIEW":
+      return "bg-yellow-100 text-yellow-700";
+
+    default:
+      return "bg-blue-100 text-blue-700";
+  }
+}
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  function loadApps() {
-    fetch("/api/applications")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setApplications(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  async function loadApplications() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch("/api/applications", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch applications");
+      }
+
+      const data = await response.json();
+
+      setApplications(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to load applications.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { loadApps(); }, []);
+  useEffect(() => {
+    loadApplications();
+  }, []);
 
-  async function updateStatus(appId: string, status: string) {
-    if (!confirm(`Are you sure you want to ${status} this application?`)) return;
-    await fetch(`/api/applications/${appId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+  const filteredApplications = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return applications.filter((application) => {
+      const status = getStatus(application);
+
+      const matchesStatus =
+        statusFilter === "ALL" || status === statusFilter;
+
+      const matchesSearch =
+        !query ||
+        application.applicationId.toLowerCase().includes(query) ||
+        application.firstName.toLowerCase().includes(query) ||
+        (application.lastName || "").toLowerCase().includes(query) ||
+        application.mobile.toLowerCase().includes(query) ||
+        (application.email || "").toLowerCase().includes(query);
+
+      return matchesStatus && matchesSearch;
     });
-    loadApps();
-  }
-
-  async function deleteApp(appId: string) {
-    if (!confirm("Are you sure you want to delete this application?")) return;
-    await fetch(`/api/applications/${appId}`, { method: "DELETE" });
-    loadApps();
-  }
-
-  const filtered = filter === "all"
-    ? applications
-    : applications.filter((a) => a.status === filter);
-
-  if (loading) {
-    return <div className="flex items-center justify-center py-20"><p className="text-muted">Loading...</p></div>;
-  }
+  }, [applications, search, statusFilter]);
 
   return (
-    <div>
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {["all", "pending", "approved", "rejected"].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              filter === f
-                ? "bg-primary text-white"
-                : "bg-white border border-border text-foreground hover:bg-blue-50"
-            }`}
-          >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-            {f === "all" && ` (${applications.length})`}
-            {f !== "all" && ` (${applications.filter((a) => a.status === f).length})`}
-          </button>
-        ))}
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
+            Admissions
+          </p>
+
+          <h1 className="text-3xl font-bold text-slate-900 mt-1">
+            Applications
+          </h1>
+
+          <p className="text-slate-500 mt-2">
+            Manage and review all admission applications.
+          </p>
+        </div>
+
+        <button
+          onClick={loadApplications}
+          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+        >
+          Refresh
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-border">
-                <th className="text-left px-4 py-3 font-medium text-muted">Application ID</th>
-                <th className="text-left px-4 py-3 font-medium text-muted">Student Name</th>
-                <th className="text-left px-4 py-3 font-medium text-muted">Mobile</th>
-                <th className="text-left px-4 py-3 font-medium text-muted">Date</th>
-                <th className="text-left px-4 py-3 font-medium text-muted">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted">
-                    No applications found
-                  </td>
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search application ID, name, mobile or email"
+            className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="RECEIVED">Received</option>
+            <option value="UNDER REVIEW">Under Review</option>
+            <option value="DOCUMENTS PENDING">
+              Documents Pending
+            </option>
+            <option value="VERIFIED">Verified</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-slate-500">
+            Loading applications...
+          </div>
+        ) : filteredApplications.length === 0 ? (
+          <div className="p-10 text-center">
+            <p className="font-semibold text-slate-800">
+              No applications found.
+            </p>
+
+            <p className="text-sm text-slate-500 mt-1">
+              Try changing the search or status filter.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Application
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Applicant
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Contact
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Status
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Date
+                  </th>
+
+                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Action
+                  </th>
                 </tr>
-              ) : (
-                filtered.map((app) => (
-                  <tr key={app.id} className="border-b border-border hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-primary">
-                      {app.applicationId}
-                    </td>
-                    <td className="px-4 py-3">
-                      {app.firstName} {app.lastName}
-                    </td>
-                    <td className="px-4 py-3 text-muted">{app.mobile}</td>
-                    <td className="px-4 py-3 text-muted">
-                      {new Date(app.createdAt).toLocaleDateString("en-IN")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                          statusBadge[app.status] || statusBadge.pending
-                        }`}
-                      >
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 flex-wrap">
+              </thead>
+
+              <tbody>
+                {filteredApplications.map((application) => {
+                  const status = getStatus(application);
+
+                  return (
+                    <tr
+                      key={application.id}
+                      className="border-b border-slate-100 last:border-0"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-slate-900">
+                          {application.applicationId}
+                        </p>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-slate-900">
+                          {application.firstName}{" "}
+                          {application.lastName || ""}
+                        </p>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <p className="text-sm text-slate-700">
+                          {application.mobile}
+                        </p>
+
+                        {application.email && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            {application.email}
+                          </p>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
+                            status,
+                          )}`}
+                        >
+                          {STATUS_LABELS[status] || status}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 text-sm text-slate-500">
+                        {new Date(
+                          application.createdAt,
+                        ).toLocaleDateString("en-IN")}
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
                         <Link
-                          href={`/admin/dashboard/applications/${app.applicationId}`}
-                          className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-md hover:bg-blue-100"
+                          href={`/admin/dashboard/applications/${application.id}`}
+                          className="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
                         >
                           View
                         </Link>
-                        {app.status !== "approved" && (
-                          <button
-                            onClick={() => updateStatus(app.applicationId, "approved")}
-                            className="px-2.5 py-1 bg-green-50 text-green-700 text-xs rounded-md hover:bg-green-100"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {app.status !== "rejected" && (
-                          <button
-                            onClick={() => updateStatus(app.applicationId, "rejected")}
-                            className="px-2.5 py-1 bg-red-50 text-red-700 text-xs rounded-md hover:bg-red-100"
-                          >
-                            Reject
-                          </button>
-                        )}
-                        <button
-                          onClick={() => deleteApp(app.applicationId)}
-                          className="px-2.5 py-1 bg-gray-50 text-gray-700 text-xs rounded-md hover:bg-gray-100"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="text-sm text-slate-500">
+        Showing {filteredApplications.length} of{" "}
+        {applications.length} applications.
       </div>
     </div>
   );
