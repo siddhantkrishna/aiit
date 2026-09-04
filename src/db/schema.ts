@@ -1340,7 +1340,9 @@ export const salesTargets = pgTable("sales_targets", {
 export const accountingTransactions = pgTable(
   "accounting_transactions",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     transactionCode: varchar(
       "transaction_code",
