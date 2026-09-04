@@ -140,7 +140,9 @@ export const centres = pgTable("centres", {
 ========================================================= */
 
 export const leads = pgTable("leads", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   leadId: varchar("lead_id", { length: 100 }).notNull().unique(),
 
@@ -187,7 +189,9 @@ export const leads = pgTable("leads", {
 ========================================================= */
 
 export const leadFollowUps = pgTable("lead_follow_ups", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   leadId: bigint("lead_id", { mode: "number" }).notNull(),
 
@@ -206,7 +210,9 @@ export const leadFollowUps = pgTable("lead_follow_ups", {
 ========================================================= */
 
 export const universityPrograms = pgTable("university_programs", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   universityId: integer("university_id").notNull(),
 
@@ -357,7 +363,9 @@ export const applications = pgTable("applications", {
 export const applicationStatusHistory = pgTable(
   "application_status_history",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     applicationId: integer("application_id").notNull(),
 
@@ -407,7 +415,9 @@ export const documents = pgTable("documents", {
 ========================================================= */
 
 export const students = pgTable("students", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   studentId: varchar("student_id", { length: 100 })
     .notNull()
@@ -507,7 +517,9 @@ export const students = pgTable("students", {
 export const studentDocuments = pgTable(
   "student_documents",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     documentId: varchar("document_id", {
       length: 100,
@@ -536,6 +548,7 @@ export const studentDocuments = pgTable(
     isMandatory: boolean("is_mandatory").default(false),
 
     uploadedAt: timestamp("uploaded_at"),
+
     uploadedBy: bigint("uploaded_by", {
       mode: "number",
     }),
@@ -568,7 +581,9 @@ export const studentDocuments = pgTable(
 ========================================================= */
 
 export const payments = pgTable("payments", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   receiptId: varchar("receipt_id", {
     length: 100,
@@ -634,7 +649,9 @@ export const payments = pgTable("payments", {
 export const studentServices = pgTable(
   "student_services",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     studentId: bigint("student_id", {
       mode: "number",
@@ -693,7 +710,9 @@ export const studentServices = pgTable(
 ========================================================= */
 
 export const staff = pgTable("staff", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   employeeId: varchar("employee_id", {
     length: 100,
@@ -741,7 +760,9 @@ export const staff = pgTable("staff", {
 ========================================================= */
 
 export const staffTasks = pgTable("staff_tasks", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   taskId: varchar("task_id", { length: 100 }),
 
@@ -797,7 +818,9 @@ export const staffTasks = pgTable("staff_tasks", {
 export const staffAttendance = pgTable(
   "staff_attendance",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     staffId: bigint("staff_id", {
       mode: "number",
@@ -830,7 +853,9 @@ export const staffAttendance = pgTable(
 ========================================================= */
 
 export const staffRoles = pgTable("staff_roles", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   roleCode: varchar("role_code", {
     length: 100,
@@ -872,7 +897,9 @@ export const staffRoles = pgTable("staff_roles", {
 ========================================================= */
 
 export const staffSops = pgTable("staff_sops", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   sopCode: varchar("sop_code", {
     length: 100,
@@ -923,7 +950,9 @@ export const staffSops = pgTable("staff_sops", {
 export const staffTrainingPrograms = pgTable(
   "staff_training_programs",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     trainingCode: varchar("training_code", {
       length: 100,
@@ -980,7 +1009,9 @@ export const staffTrainingPrograms = pgTable(
 export const staffTrainingRecords = pgTable(
   "staff_training_records",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     staffId: bigint("staff_id", {
       mode: "number",
@@ -1024,7 +1055,9 @@ export const staffTrainingRecords = pgTable(
 export const performanceReviews = pgTable(
   "performance_reviews",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     staffId: bigint("staff_id", {
       mode: "number",
@@ -1068,7 +1101,9 @@ export const performanceReviews = pgTable(
 export const incentiveRules = pgTable(
   "incentive_rules",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     ruleCode: varchar("rule_code", {
       length: 100,
@@ -1131,7 +1166,9 @@ export const incentiveRules = pgTable(
 export const staffIncentives = pgTable(
   "staff_incentives",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     staffId: bigint("staff_id", {
       mode: "number",
@@ -1187,7 +1224,9 @@ export const staffIncentives = pgTable(
 export const marketingCampaigns = pgTable(
   "marketing_campaigns",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     campaignCode: varchar("campaign_code", {
       length: 100,
@@ -1247,7 +1286,9 @@ export const marketingCampaigns = pgTable(
 export const marketingActivities = pgTable(
   "marketing_activities",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     campaignId: bigint("campaign_id", {
       mode: "number",
@@ -1293,7 +1334,9 @@ export const marketingActivities = pgTable(
 ========================================================= */
 
 export const salesTargets = pgTable("sales_targets", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   targetCode: varchar("target_code", {
     length: 100,
@@ -1419,7 +1462,9 @@ export const accountingTransactions = pgTable(
 ========================================================= */
 
 export const expenses = pgTable("expenses", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
 
   expenseDate: date("expense_date"),
 
@@ -1462,7 +1507,9 @@ export const expenses = pgTable("expenses", {
 export const financialControls = pgTable(
   "financial_controls",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     controlCode: varchar("control_code", {
       length: 100,
@@ -1519,7 +1566,9 @@ export const financialControls = pgTable(
 export const financialControlLogs = pgTable(
   "financial_control_logs",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     controlId: bigint("control_id", {
       mode: "number",
@@ -1569,7 +1618,9 @@ export const financialControlLogs = pgTable(
 export const jobOpenings = pgTable(
   "job_openings",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     jobCode: varchar("job_code", {
       length: 100,
@@ -1631,7 +1682,9 @@ export const jobOpenings = pgTable(
 export const jobApplicants = pgTable(
   "job_applicants",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     applicantCode: varchar(
       "applicant_code",
@@ -1701,7 +1754,9 @@ export const jobApplicants = pgTable(
 export const replicationTemplates = pgTable(
   "replication_templates",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     templateCode: varchar(
       "template_code",
@@ -1747,7 +1802,9 @@ export const replicationTemplates = pgTable(
 export const replicationInstances = pgTable(
   "replication_instances",
   {
-    id: bigint("id", { mode: "number" }).primaryKey(),
+    id: bigint("id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .primaryKey(),
 
     instanceCode: varchar(
       "instance_code",
