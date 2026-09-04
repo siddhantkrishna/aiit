@@ -17,16 +17,6 @@ const sidebarLinks = [
     icon: "📋",
   },
   {
-    href: "/admin/dashboard/vacancies",
-    label: "Vacancies",
-    icon: "💼",
-  },
-  {
-    href: "/admin/dashboard/vacancy-applications",
-    label: "Recruitment",
-    icon: "👥",
-  },
-  {
     href: "/admin/dashboard/courses",
     label: "Courses",
     icon: "📚",
@@ -35,6 +25,16 @@ const sidebarLinks = [
     href: "/admin/dashboard/universities",
     label: "Universities",
     icon: "🏛️",
+  },
+  {
+    href: "/admin/dashboard/vacancies",
+    label: "Vacancies",
+    icon: "💼",
+  },
+  {
+    href: "/admin/dashboard/vacancy-applications",
+    label: "Recruitment",
+    icon: "👥",
   },
 ];
 
@@ -61,9 +61,7 @@ export default function AdminLayout({
         });
 
         if (!response.ok) {
-          if (mounted) {
-            router.replace("/admin/login");
-          }
+          router.replace("/admin/login");
           return;
         }
 
@@ -77,9 +75,7 @@ export default function AdminLayout({
           router.replace("/admin/login");
         }
       } catch {
-        if (mounted) {
-          router.replace("/admin/login");
-        }
+        router.replace("/admin/login");
       } finally {
         if (mounted) {
           setCheckingAuth(false);
@@ -124,23 +120,19 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
-          sidebarOpen
-            ? "translate-x-0"
-            : "-translate-x-full"
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:static lg:inset-auto`}
       >
         <div className="h-full flex flex-col">
-          {/* Logo */}
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <Image
                 src="/images/aiit-logo.png"
                 alt="AIIT"
-                width={36}
-                height={36}
+                width={38}
+                height={38}
                 className="rounded-full"
               />
 
@@ -150,14 +142,13 @@ export default function AdminLayout({
                 </p>
 
                 <p className="text-[10px] text-muted">
-                  Dashboard
+                  Management System
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {sidebarLinks.map((link) => {
               const active =
                 link.href === "/admin/dashboard"
@@ -168,9 +159,7 @@ export default function AdminLayout({
                 <Link
                   key={link.href}
                   href={link.href}
-                  onClick={() =>
-                    setSidebarOpen(false)
-                  }
+                  onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     active
                       ? "bg-primary text-white"
@@ -184,7 +173,6 @@ export default function AdminLayout({
             })}
           </nav>
 
-          {/* Bottom */}
           <div className="p-4 border-t border-border">
             <button
               onClick={handleLogout}
@@ -203,7 +191,6 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40 lg:hidden"
@@ -211,7 +198,6 @@ export default function AdminLayout({
         />
       )}
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-border px-4 py-3 flex items-center gap-4 lg:px-6">
           <button

@@ -1,101 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  FileText,
+  Clock3,
+  CheckCircle2,
+  XCircle,
+  CalendarDays,
+  RefreshCw,
+} from "lucide-react";
 
-type DashboardStats = {
-  leads: number;
-  applications: number;
-  students: number;
-  activeStudents: number;
-  collections: number;
-  pendingFees: number;
-  staff: number;
-  openTasks: number;
-  openServices: number;
+type Stats = {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  today: number;
 };
 
 const cards = [
   {
-    key: "leads",
-    label: "Total Leads",
-    icon: "📈",
+    key: "total",
+    label: "Total Applications",
+    icon: FileText,
   },
   {
-    key: "applications",
-    label: "Applications",
-    icon: "📋",
+    key: "pending",
+    label: "Pending",
+    icon: Clock3,
   },
   {
-    key: "students",
-    label: "Total Students",
-    icon: "🎓",
+    key: "approved",
+    label: "Approved",
+    icon: CheckCircle2,
   },
   {
-    key: "activeStudents",
-    label: "Active Students",
-    icon: "✅",
+    key: "rejected",
+    label: "Rejected",
+    icon: XCircle,
   },
   {
-    key: "collections",
-    label: "Collections",
-    icon: "₹",
+    key: "today",
+    label: "Today's Applications",
+    icon: CalendarDays,
   },
-  {
-    key: "pendingFees",
-    label: "Pending Fees",
-    icon: "⏳",
-  },
-  {
-    key: "staff",
-    label: "Active Staff",
-    icon: "👥",
-  },
-  {
-    key: "openTasks",
-    label: "Open Tasks",
-    icon: "📝",
-  },
-];
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+] as const;
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadDashboard() {
+  async function loadStats() {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch("/api/admin/dashboard", {
-        method: "GET",
+      const response = await fetch("/api/admin/stats", {
         cache: "no-store",
       });
 
       if (!response.ok) {
-        throw new Error("Failed to load dashboard");
+        throw new Error("Failed to fetch dashboard statistics");
       }
 
       const data = await response.json();
 
       setStats({
-        leads: Number(data.leads || 0),
-        applications: Number(data.applications || 0),
-        students: Number(data.students || 0),
-        activeStudents: Number(data.activeStudents || 0),
-        collections: Number(data.collections || 0),
-        pendingFees: Number(data.pendingFees || 0),
-        staff: Number(data.staff || 0),
-        openTasks: Number(data.openTasks || 0),
-        openServices: Number(data.openServices || 0),
+        total: Number(data.total || 0),
+        pending: Number(data.pending || 0),
+        approved: Number(data.approved || 0),
+        rejected: Number(data.rejected || 0),
+        today: Number(data.today || 0),
       });
     } catch (err) {
       console.error(err);
@@ -106,197 +82,154 @@ export default function AdminDashboardPage() {
   }
 
   useEffect(() => {
-    loadDashboard();
+    loadStats();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
-          <div className="h-4 w-80 bg-gray-100 rounded animate-pulse mt-3" />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div
-              key={index}
-              className="bg-white border border-border rounded-xl p-5"
-            >
-              <div className="h-5 w-8 bg-gray-200 rounded animate-pulse" />
-              <div className="h-8 w-20 bg-gray-200 rounded animate-pulse mt-5" />
-              <div className="h-4 w-28 bg-gray-100 rounded animate-pulse mt-2" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <div className="bg-white border border-red-200 rounded-xl p-8 text-center">
-        <p className="text-red-600 font-medium">
-          {error || "Dashboard data unavailable."}
-        </p>
-
-        <button
-          onClick={loadDashboard}
-          className="mt-4 px-5 py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-sm font-semibold text-primary uppercase tracking-wider">
-          Overview
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
+            Administration
+          </p>
 
-        <h2 className="text-3xl font-bold text-foreground mt-1">
-          AIIT Management Dashboard
-        </h2>
+          <h1 className="text-3xl font-bold text-slate-900 mt-1">
+            AIIT Dashboard
+          </h1>
 
-        <p className="text-muted mt-2">
-          Live operational overview of admissions, students, finance and staff.
-        </p>
+          <p className="text-slate-500 mt-2">
+            Admissions and operational overview.
+          </p>
+        </div>
+
+        <button
+          onClick={loadStats}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <RefreshCw
+            size={16}
+            className={loading ? "animate-spin" : ""}
+          />
+          Refresh
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        {cards.map((card) => {
-          const rawValue =
-            stats[card.key as keyof DashboardStats];
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
-          const value =
-            card.key === "collections" || card.key === "pendingFees"
-              ? formatCurrency(Number(rawValue))
-              : Number(rawValue).toLocaleString("en-IN");
-
-          return (
-            <div
-              key={card.key}
-              className="bg-white border border-border rounded-xl p-5 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">{card.icon}</span>
-
-                <span className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-primary">
-                  +
-                </span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
+        {cards.map(({ key, label, icon: Icon }) => (
+          <div
+            key={key}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <Icon size={21} />
               </div>
 
-              <p className="text-2xl font-bold text-foreground mt-5">
-                {value}
+              <span className="text-xs font-medium text-slate-400">
+                LIVE
+              </span>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-3xl font-bold text-slate-900">
+                {loading
+                  ? "—"
+                  : stats?.[key] !== undefined
+                    ? stats[key].toLocaleString("en-IN")
+                    : "0"}
               </p>
 
-              <p className="text-sm text-muted mt-1">
-                {card.label}
+              <p className="mt-1 text-sm text-slate-500">
+                {label}
               </p>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-border rounded-xl p-6">
-          <h3 className="text-lg font-bold text-foreground">
-            Operations
-          </h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">
+            Application Pipeline
+          </h2>
 
-          <div className="mt-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm text-muted">
-                Open student services
-              </span>
-
-              <span className="font-bold text-foreground">
-                {stats.openServices}
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Pending</span>
+              <span className="font-semibold text-amber-600">
+                {loading ? "—" : stats?.pending ?? 0}
               </span>
             </div>
 
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm text-muted">
-                Open staff tasks
-              </span>
-
-              <span className="font-bold text-foreground">
-                {stats.openTasks}
-              </span>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all"
+                style={{
+                  width:
+                    !stats || stats.total === 0
+                      ? "0%"
+                      : `${Math.min(
+                          (stats.pending / stats.total) * 100,
+                          100,
+                        )}%`,
+                }}
+              />
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted">
-                Active staff
+              <span className="text-sm text-slate-500">Approved</span>
+              <span className="font-semibold text-emerald-600">
+                {loading ? "—" : stats?.approved ?? 0}
               </span>
+            </div>
 
-              <span className="font-bold text-foreground">
-                {stats.staff}
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{
+                  width:
+                    !stats || stats.total === 0
+                      ? "0%"
+                      : `${Math.min(
+                          (stats.approved / stats.total) * 100,
+                          100,
+                        )}%`,
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Rejected</span>
+              <span className="font-semibold text-red-600">
+                {loading ? "—" : stats?.rejected ?? 0}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-border rounded-xl p-6">
-          <h3 className="text-lg font-bold text-foreground">
-            Student Health
-          </h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">
+            Today
+          </h2>
 
-          <div className="mt-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm text-muted">
-                Total students
-              </span>
-
-              <span className="font-bold text-foreground">
-                {stats.students}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm text-muted">
-                Active students
-              </span>
-
-              <span className="font-bold text-foreground">
-                {stats.activeStudents}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted">
-                Pending fees
-              </span>
-
-              <span className="font-bold text-red-600">
-                {formatCurrency(stats.pendingFees)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-primary-dark text-white rounded-xl p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <p className="text-sm text-blue-200">
-              AIIT System Status
+          <div className="mt-6 rounded-xl bg-slate-50 p-6">
+            <p className="text-sm text-slate-500">
+              Applications received today
             </p>
 
-            <h3 className="text-xl font-bold mt-1">
-              Core database systems connected
-            </h3>
+            <p className="mt-2 text-4xl font-bold text-blue-600">
+              {loading ? "—" : stats?.today ?? 0}
+            </p>
           </div>
-
-          <span className="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 text-sm font-semibold">
-            ● Live
-          </span>
         </div>
       </div>
     </div>
   );
 }
-
