@@ -39,6 +39,7 @@ type Application = {
   nextAction: string | null;
   dueDate: string | null;
   remarks: string | null;
+  declaration: boolean;
   createdAt: string;
   updatedAt: string;
 };
