@@ -25,8 +25,8 @@ export async function GET() {
         `),
       ]);
 
-    const dailyRow = dailyResult[0] || {};
-    const monthlyRow = monthlyResult[0] || {};
+    const dailyRow = dailyResult.rows[0] || {};
+    const monthlyRow = monthlyResult.rows[0] || {};
 
     const numberValue = (value: unknown) =>
       Number(value ?? 0);
@@ -102,7 +102,7 @@ export async function GET() {
         ),
       },
 
-      centres: centresResult.map((row) => ({
+      centres: centresResult.rows.map((row) => ({
         centreId: numberValue(row.centre_id),
         centreCode: String(
           row.centre_code || "",

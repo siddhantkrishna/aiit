@@ -107,20 +107,20 @@ export async function GET() {
     ]);
 
     return NextResponse.json({
-      total: Number(applications[0]?.count ?? 0),
-      pending: Number(pending[0]?.count ?? 0),
-      approved: Number(approved[0]?.count ?? 0),
-      rejected: Number(rejected[0]?.count ?? 0),
-      today: Number(today[0]?.count ?? 0),
+      total: Number(applications.rows[0]?.count ?? 0),
+      pending: Number(pending.rows[0]?.count ?? 0),
+      approved: Number(approved.rows[0]?.count ?? 0),
+      rejected: Number(rejected.rows[0]?.count ?? 0),
+      today: Number(today.rows[0]?.count ?? 0),
 
-      leads: Number(leads[0]?.count ?? 0),
-      students: Number(students[0]?.count ?? 0),
-      activeStudents: Number(activeStudents[0]?.count ?? 0),
-      collections: Number(collections[0]?.total ?? 0),
-      pendingFees: Number(pendingFees[0]?.total ?? 0),
-      staff: Number(staff[0]?.count ?? 0),
-      openTasks: Number(openTasks[0]?.count ?? 0),
-      openServices: Number(openServices[0]?.count ?? 0),
+      leads: Number(leads.rows[0]?.count ?? 0),
+      students: Number(students.rows[0]?.count ?? 0),
+      activeStudents: Number(activeStudents.rows[0]?.count ?? 0),
+      collections: Number(collections.rows[0]?.total ?? 0),
+      pendingFees: Number(pendingFees.rows[0]?.total ?? 0),
+      staff: Number(staff.rows[0]?.count ?? 0),
+      openTasks: Number(openTasks.rows[0]?.count ?? 0),
+      openServices: Number(openServices.rows[0]?.count ?? 0),
     });
   } catch (error) {
     console.error("Admin stats error:", error);
