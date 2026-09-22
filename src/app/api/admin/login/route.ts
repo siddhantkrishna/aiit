@@ -5,10 +5,14 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "aiit-college-admin-secret-2025";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export async function POST(req: NextRequest) {
   try {
+    if (!JWT_SECRET) {
+      console.error("JWT_SECRET is not configured.");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
     const { email, password } = await req.json();
 
     const user = await db

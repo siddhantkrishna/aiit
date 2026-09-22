@@ -108,7 +108,7 @@ export default function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-1.5 text-sm mb-6">
                 <span className="text-primary-light">●</span>
-                Admissions Open 2025-26
+                Admissions Open 2026-27
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
                 Shape Your Future at{" "}

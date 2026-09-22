@@ -36,6 +36,71 @@ const sidebarLinks = [
     label: "Recruitment",
     icon: "👥",
   },
+  {
+    href: "/admin/dashboard/online-classes",
+    label: "Online Classes",
+    icon: "💻",
+  },
+  {
+    href: "/admin/dashboard/online-exams",
+    label: "Online Exams",
+    icon: "📝",
+  },
+  {
+    href: "/admin/dashboard/student-results",
+    label: "Student Results",
+    icon: "📈",
+  },
+  {
+    href: "/admin/dashboard/students",
+    label: "Students",
+    icon: "🎓",
+  },
+  {
+    href: "/admin/dashboard/leads",
+    label: "Leads / Inquiry",
+    icon: "📨",
+  },
+  {
+    href: "/admin/dashboard/payments",
+    label: "Payments",
+    icon: "💳",
+  },
+  {
+    href: "/admin/dashboard/attendance",
+    label: "Attendance",
+    icon: "🕘",
+  },
+  {
+    href: "/admin/dashboard/services",
+    label: "Student Services",
+    icon: "🧾",
+  },
+  {
+    href: "/admin/dashboard/accounting",
+    label: "Accounting",
+    icon: "💰",
+  },
+  {
+    href: "/admin/dashboard/reports",
+    label: "Reports",
+    icon: "📊",
+  },
+  {
+    href: "/admin/dashboard/tasks",
+    label: "Tasks",
+    icon: "✅",
+  },
+  {
+    href: "/admin/dashboard/staff",
+    label: "Staff",
+    icon: "👤",
+  },
+  {
+    href: "/admin/dashboard/marketing",
+    label: "Marketing",
+    icon: "📣",
+  },
 ];
 
 export default function AdminLayout({

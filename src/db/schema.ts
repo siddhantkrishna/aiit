@@ -1999,3 +1999,116 @@ export const admin = pgTable("admin", {
     .defaultNow()
     .notNull(),
 });
+/* =========================================================
+   ONLINE CLASSES
+========================================================= */
+
+export const onlineClasses = pgTable("online_classes", {
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
+
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  instructor: varchar("instructor", { length: 255 }),
+  courseId: integer("course_id"),
+
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  durationMinutes: integer("duration_minutes").default(60),
+
+  meetingUrl: text("meeting_url"),
+  recordingUrl: text("recording_url"),
+
+  status: varchar("status", { length: 50 })
+    .default("SCHEDULED")
+    .notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/* =========================================================
+   ONLINE EXAMS
+========================================================= */
+
+export const onlineExams = pgTable("online_exams", {
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
+
+  examCode: varchar("exam_code", { length: 100 })
+    .notNull()
+    .unique(),
+
+  title: varchar("title", { length: 255 }).notNull(),
+  instructions: text("instructions"),
+  courseId: integer("course_id"),
+
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  durationMinutes: integer("duration_minutes").default(60).notNull(),
+
+  totalMarks: integer("total_marks").default(0).notNull(),
+  passingMarks: integer("passing_marks").default(0).notNull(),
+
+  questions: jsonb("questions").default([]).notNull(),
+  published: boolean("published").default(false).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/* =========================================================
+   ONLINE EXAM ATTEMPTS
+========================================================= */
+
+export const onlineExamAttempts = pgTable("online_exam_attempts", {
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
+
+  examId: bigint("exam_id", { mode: "number" }).notNull(),
+  studentId: bigint("student_id", { mode: "number" }).notNull(),
+
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"),
+
+  answers: jsonb("answers").default({}).notNull(),
+  score: numeric("score"),
+  resultStatus: varchar("result_status", { length: 50 }),
+  attemptStatus: varchar("attempt_status", { length: 50 })
+    .default("IN_PROGRESS")
+    .notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/* =========================================================
+   STUDENT RESULTS
+========================================================= */
+
+export const studentResults = pgTable("student_results", {
+  id: bigint("id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .primaryKey(),
+
+  studentId: bigint("student_id", { mode: "number" }).notNull(),
+  examId: bigint("exam_id", { mode: "number" }),
+
+  examination: varchar("examination", { length: 255 }).notNull(),
+  semester: varchar("semester", { length: 100 }),
+  subject: varchar("subject", { length: 255 }).notNull(),
+
+  maxMarks: numeric("max_marks").notNull(),
+  marksObtained: numeric("marks_obtained").notNull(),
+  grade: varchar("grade", { length: 20 }),
+  resultStatus: varchar("result_status", { length: 50 }).default("PASS").notNull(),
+
+  published: boolean("published").default(false).notNull(),
+  remarks: text("remarks"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { applications, courses } from "@/db/schema";
+import { applications, courses, documents } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { supabase } from "@/lib/supabase";
 import { generateApplicationId } from "@/lib/utils";
+import { requireAdmin } from "@/lib/admin-auth";
 
 const MAX_PAYMENT_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PAYMENT_TYPES = [
@@ -11,6 +12,103 @@ const ALLOWED_PAYMENT_TYPES = [
   "image/png",
   "image/webp",
 ];
+
+const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_DOCUMENT_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+
+const ADMISSION_DOCUMENTS = [
+  { key: "photo", label: "Passport Photo", required: false },
+  { key: "aadhaar", label: "Aadhaar Card", required: false },
+  { key: "tenthMarksheet", label: "10th Marksheet", required: false },
+  { key: "twelfthMarksheet", label: "12th Marksheet", required: false },
+  { key: "gradMarksheet", label: "Graduation Marksheet", required: false },
+  { key: "otherDoc", label: "Other Document", required: false },
+] as const;
+
+function getFileExtension(file: File) {
+  const original = file.name.split(".").pop()?.toLowerCase();
+  if (original && /^[a-z0-9]{1,8}$/.test(original)) return original;
+
+  switch (file.type) {
+    case "application/pdf":
+      return "pdf";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    default:
+      return "jpg";
+  }
+}
+
+async function uploadAdmissionDocuments(
+  applicationId: string,
+  formData: FormData,
+) {
+  const uploaded: string[] = [];
+  const rows: Array<{
+    applicationId: string;
+    docType: string;
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+  }> = [];
+
+  try {
+    for (const definition of ADMISSION_DOCUMENTS) {
+      const value = formData.get(definition.key);
+      if (!(value instanceof File) || value.size === 0) continue;
+
+      if (value.size > MAX_DOCUMENT_FILE_SIZE) {
+        throw new Error(`${definition.label} must be less than 5MB.`);
+      }
+
+      if (!ALLOWED_DOCUMENT_TYPES.includes(value.type)) {
+        throw new Error(`${definition.label} must be JPG, PNG, WebP, or PDF.`);
+      }
+
+      const extension = getFileExtension(value);
+      const objectPath = `applications/${applicationId}/${definition.key}.${extension}`;
+      const buffer = Buffer.from(await value.arrayBuffer());
+
+      const { error } = await supabase.storage.from("documents").upload(objectPath, buffer, {
+        contentType: value.type,
+        upsert: true,
+      });
+
+      if (error) {
+        throw new Error(`Failed to upload ${definition.label.toLowerCase()}.`);
+      }
+
+      uploaded.push(objectPath);
+      const { data } = supabase.storage.from("documents").getPublicUrl(objectPath);
+
+      rows.push({
+        applicationId,
+        docType: definition.key,
+        fileName: value.name,
+        filePath: data.publicUrl,
+        fileSize: value.size,
+      });
+    }
+
+    if (rows.length > 0) {
+      await db.insert(documents).values(rows);
+    }
+
+    return { rows };
+  } catch (error) {
+    if (uploaded.length > 0) {
+      await supabase.storage.from("documents").remove(uploaded).catch(() => undefined);
+    }
+    throw error;
+  }
+}
 
 type ApplicationPayload = {
   applicationId?: unknown;
@@ -87,8 +185,11 @@ async function uploadPaymentScreenshot(applicationId: string, file: File) {
   return { publicUrl: data.publicUrl };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const rows = await db
       .select()
       .from(applications)
@@ -279,6 +380,14 @@ export async function POST(req: NextRequest) {
           status: "pending",
         })
         .returning();
+
+      try {
+        await uploadAdmissionDocuments(applicationId, formData);
+      } catch (documentError) {
+        await db.delete(applications).where(eq(applications.applicationId, applicationId));
+        const message = documentError instanceof Error ? documentError.message : "Document upload failed.";
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
 
       return NextResponse.json(
         {
