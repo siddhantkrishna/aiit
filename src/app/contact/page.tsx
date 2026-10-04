@@ -1,5 +1,7 @@
 ﻿import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
+import { SITE } from "@/lib/seo";
 
 export default function ContactPage() {
   return (
@@ -129,6 +131,21 @@ export default function ContactPage() {
           </div>
         </section>
       </main>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "@id": `${SITE.url}/contact#webpage`,
+          url: `${SITE.url}/contact`,
+          name: "Contact AIIT College",
+          description:
+            "Contact AIIT College in Gharghoda, Raigarh, Chhattisgarh.",
+          mainEntity: {
+            "@id": `${SITE.url}/#organization`,
+          },
+        }}
+      />
+
       <Footer />
     </>
   );

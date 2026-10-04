@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { courses } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
+import JsonLd from "@/components/JsonLd";
+import { SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +71,7 @@ export default async function CoursesPage() {
                       .map((course) => (
                         <div
                           key={course.id}
+                          id={`course-${course.id}`}
                           className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
                         >
                           <h3 className="text-lg font-bold text-foreground">
@@ -108,6 +111,39 @@ export default async function CoursesPage() {
           </div>
         </section>
       </main>
+
+      <JsonLd
+        data={
+          allCourses.length >= 3
+            ? {
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "@id": `${SITE.url}/courses#course-list`,
+                name: "AIIT College Courses",
+                itemListElement: allCourses.map((course, index) => ({
+                  "@type": "ListItem",
+                  position: index + 1,
+                  url: `${SITE.url}/courses#course-${course.id}`,
+                  item: {
+                    "@type": "Course",
+                    name: course.name,
+                    description:
+                      course.fullName ||
+                      `${course.name} course offered through AIIT College in Gharghoda, Raigarh, Chhattisgarh.`,
+                    provider: {
+                      "@type": "Organization",
+                      name: SITE.name,
+                      url: SITE.url,
+                    },
+                    courseMode: course.studyMode || undefined,
+                    educationalLevel: course.category || undefined,
+                  },
+                })),
+              }
+            : null
+        }
+      />
+
       <Footer />
     </>
   );

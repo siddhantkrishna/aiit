@@ -33,8 +33,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-sm text-blue-200 leading-relaxed">
-              Empowering students with quality education in Computer Science,
-              Technology, and Professional Development since establishment.
+              AIIT College in Gharghoda, Raigarh, Chhattisgarh — providing computer education, university programs, distance education, online education, skill development, and professional courses.
             </p>
           </div>
 
@@ -57,7 +56,7 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold text-lg mb-4">Contact Us</h3>
             <div className="space-y-3 text-sm text-blue-200">
-              <p>📍 AIIT College, Gharghoda, Chhattisgarh</p>
+              <p>📍 AIIT College, Gharghoda, Raigarh, Chhattisgarh, India</p>
               <p>📞 +91 97700 55880</p>
               <p>📞 +91 70009 87194</p>
               <p>💬 WhatsApp: +91 97700 55880</p>

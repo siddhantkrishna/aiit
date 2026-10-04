@@ -6,17 +6,110 @@ import Footer from "@/components/Footer";
 import { db } from "@/db";
 import { vacancies } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import JsonLd from "@/components/JsonLd";
+import { SITE } from "@/lib/seo";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
   const { slug } = await params;
-  const [job] = await db.select().from(vacancies).where(eq(vacancies.slug, slug));
-  return { title: job ? `${job.title} - AIIT College` : "Vacancy - AIIT College" };
+
+  const [job] = await db
+    .select()
+    .from(vacancies)
+    .where(eq(vacancies.slug, slug));
+
+  if (!job) {
+    return {
+      title: "Vacancy - AIIT College",
+      robots: {
+        index: false,
+        follow: true,
+      },
+    };
+  }
+
+  const description =
+    job.description ||
+    `${job.title} vacancy at AIIT College in Gharghoda, Raigarh, Chhattisgarh.`;
+
+  return {
+    title: `${job.title} | Careers at AIIT College`,
+    description,
+    alternates: {
+      canonical: `${SITE.url}/vacancies/${job.slug}`,
+    },
+    openGraph: {
+      type: "website",
+      url: `${SITE.url}/vacancies/${job.slug}`,
+      siteName: SITE.name,
+      title: `${job.title} | Careers at AIIT College`,
+      description,
+      locale: "en_IN",
+    },
+    robots: {
+      index: job.enabled,
+      follow: true,
+    },
+  };
 }
 
 export default async function VacancyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [job] = await db.select().from(vacancies).where(eq(vacancies.slug, slug));
   if (!job || !job.enabled) notFound();
+  const employmentMap: Record<string, string> = {
+    "full-time": "FULL_TIME",
+    "full time": "FULL_TIME",
+    "part-time": "PART_TIME",
+    "part time": "PART_TIME",
+    contract: "CONTRACTOR",
+    temporary: "TEMPORARY",
+    internship: "INTERN",
+  };
+
+  const employmentType =
+    employmentMap[(job.employmentType || "").toLowerCase()] ||
+    "FULL_TIME";
+
+  const jobPostingJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    "@id": `${SITE.url}/vacancies/${job.slug}#job`,
+    title: job.title,
+    description:
+      job.description ||
+      `${job.title} vacancy at AIIT College in Gharghoda, Raigarh, Chhattisgarh.`,
+    datePosted: job.createdAt.toISOString(),
+    employmentType,
+    hiringOrganization: {
+      "@type": "Organization",
+      name: SITE.name,
+      sameAs: SITE.url,
+      logo: `${SITE.url}${SITE.logo}`,
+    },
+    jobLocation: {
+      "@type": "Place",
+      name: job.location || "AIIT College, Gharghoda, Chhattisgarh",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Gharghoda",
+        addressRegion: "Chhattisgarh",
+        postalCode: SITE.postalCode,
+        addressCountry: "IN",
+      },
+    },
+    identifier: {
+      "@type": "PropertyValue",
+      name: SITE.name,
+      value: String(job.id),
+    },
+    url: `${SITE.url}/vacancies/${job.slug}`,
+    directApply: true,
+  };
+
   return <><Navbar/><main className="bg-background">
     <section className="bg-primary-dark text-white"><div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
       <Link href="/vacancies" className="text-sm text-blue-200 hover:text-white">← Back to vacancies</Link>
@@ -32,5 +125,8 @@ export default async function VacancyDetailPage({ params }: { params: Promise<{ 
       </div>
       <aside className="bg-white border border-border rounded-xl p-6 h-fit lg:sticky lg:top-24"><p className="text-sm text-muted">Experience</p><p className="font-semibold mt-1">{job.experience}</p><p className="text-sm text-muted mt-5">Salary</p><p className="font-semibold mt-1">{job.salary}</p><Link href={`/vacancies/${job.slug}/apply`} className="block mt-7 text-center px-5 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">Apply for this role</Link></aside>
     </div></section>
-  </main><Footer/></>;
+  </main>
+  <JsonLd data={jobPostingJsonLd} />
+  <Footer/>
+  </>;
 }

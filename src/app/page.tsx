@@ -2,6 +2,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Image from "next/image";
 import Link from "next/link";
+import JsonLd from "@/components/JsonLd";
+import { SITE, pageMetadata } from "@/lib/seo";
 
 const features = [
   {
@@ -95,6 +97,22 @@ const faqs = [
   },
 ];
 
+export const metadata = pageMetadata({
+  title: "AIIT College Gharghoda | Aryabhatta Institute of Information Technology",
+  description:
+    "AIIT College is an educational institution in Gharghoda, Raigarh, Chhattisgarh offering computer education, university programs, distance education, online education, skill development, and professional courses.",
+  pathname: "/",
+  keywords: [
+    "AIIT College Gharghoda",
+    "Aryabhatta Institute of Information Technology",
+    "college in Gharghoda",
+    "college in Raigarh",
+    "college in Chhattisgarh",
+    "computer education Gharghoda",
+    "AIIT admission",
+  ],
+});
+
 export default function HomePage() {
   return (
     <>
@@ -115,9 +133,10 @@ export default function HomePage() {
                 <span className="text-primary-light">AIIT College</span>
               </h1>
               <p className="text-lg text-blue-200 mb-8 max-w-lg">
-                Aryabhatta Institute of Information Technology — Empowering
-                students with quality education in Computer Science, Technology,
-                and Professional Development.
+                Aryabhatta Institute of Information Technology in Gharghoda,
+                Raigarh, Chhattisgarh — empowering students with quality
+                education in Computer Science, Information Technology,
+                professional education, and skill development.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
@@ -177,9 +196,10 @@ export default function HomePage() {
               </h2>
               <p className="text-muted leading-relaxed mb-4">
                 Aryabhatta Institute of Information Technology (AIIT) College is
-                a premier educational institution dedicated to providing quality
-                education in Computer Science, Information Technology, and
-                various professional disciplines.
+                an educational institution in Gharghoda, Raigarh, Chhattisgarh,
+                dedicated to providing quality education in Computer Science,
+                Information Technology, university programs, distance education,
+                online education, and professional disciplines.
               </p>
               <p className="text-muted leading-relaxed mb-6">
                 Affiliated with top universities, we offer a wide range of
@@ -387,7 +407,7 @@ export default function HomePage() {
             Ready to Start Your Journey?
           </h2>
           <p className="text-lg text-blue-100 mb-8">
-            Applications are open for 2025-26. Secure your admission today.
+            Applications are open for 2026-27. Secure your admission today.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link
@@ -411,6 +431,23 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": `${SITE.url}/#faq`,
+          mainEntity: faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.q,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.a,
+            },
+          })),
+        }}
+      />
 
       <Footer />
     </>
