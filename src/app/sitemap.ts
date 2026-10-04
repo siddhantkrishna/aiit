@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://aiitcollege.edu.in";
+  const baseUrl = "https://aiitcollege.in";
 
   const staticPages: MetadataRoute.Sitemap = [
     {

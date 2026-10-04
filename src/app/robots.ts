@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/admin/", "/api/"],
       },
     ],
-    sitemap: "https://aiitcollege.edu.in/sitemap.xml",
+    sitemap: "https://aiitcollege.in/sitemap.xml",
   };
 }
