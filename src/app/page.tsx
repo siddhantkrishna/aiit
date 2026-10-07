@@ -146,10 +146,10 @@ export default function HomePage() {
                   Apply for Admission →
                 </Link>
                 <Link
-                  href="/courses"
+                  href="/online-inquiry"
                   className="px-6 py-3 border border-white/30 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors"
                 >
-                  Explore Courses
+                  Enquiry →
                 </Link>
               </div>
             </div>
