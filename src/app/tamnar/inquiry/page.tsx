@@ -1,110 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-type Course = {
-  id: number;
-  name: string;
-  fullName?: string;
-  enabled: boolean;
-};
-
 export default function TamnarInquiryPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [selectedCourses, setSelectedCourses] = useState<number[]>([]);
   const [submittedId, setSubmittedId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetch("/api/courses", {
-      cache: "no-store",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setCourses(
-            data.filter((course: Course) => course.enabled)
-          );
-        }
-      })
-      .catch(() => {
-        setCourses([]);
-      });
-  }, []);
-
-  function toggleCourse(courseId: number) {
-    setSelectedCourses((current) =>
-      current.includes(courseId)
-        ? current.filter((id) => id !== courseId)
-        : [...current, courseId]
-    );
-  }
-
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
-    if (selectedCourses.length === 0) {
-      setError(
-        "Please select at least one course. / कृपया कम से कम एक पाठ्यक्रम चुनें।"
-      );
-      return;
-    }
 
     setSaving(true);
     setError("");
 
     const form = new FormData(e.currentTarget);
 
-    const selectedCourseNames = selectedCourses
-      .map((id) => courses.find((course) => course.id === id))
-      .filter(Boolean)
-      .map((course) =>
-        course?.fullName
-          ? `${course.name} — ${course.fullName}`
-          : course?.name || ""
-      )
-      .filter(Boolean);
+    const name = String(form.get("name") || "").trim();
+    const qualification = String(
+      form.get("qualification") || "",
+    ).trim();
+    const address = String(
+      form.get("location") || "",
+    ).trim();
+    const mobile = String(
+      form.get("mobile") || "",
+    )
+      .replace(/\D/g, "")
+      .slice(0, 10);
+    const course = String(
+      form.get("course") || "",
+    ).trim();
+
+    if (!name || !qualification || !address || !mobile || !course) {
+      setError(
+        "Please fill in all fields. / कृपया सभी जानकारी भरें।",
+      );
+      setSaving(false);
+      return;
+    }
+
+    if (mobile.length !== 10) {
+      setError(
+        "Please enter a valid 10-digit mobile number. / कृपया सही 10 अंकों का मोबाइल नंबर दर्ज करें।",
+      );
+      setSaving(false);
+      return;
+    }
 
     const payload = {
-      name: form.get("name"),
-      qualification: form.get("qualification"),
-      location: form.get("location"),
-      mobile: form.get("mobile"),
+      name,
+      qualification,
+      location: address,
+      mobile,
       branch: "TAMNAR",
-      interestedCourseId: selectedCourses[0],
-      message: `Interested Courses: ${selectedCourseNames.join(", ")}`,
+      message: `Interested Course(s): ${course}`,
     };
 
     try {
-      const response = await fetch("/api/online-inquiry", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
+      const response = await fetch(
+        "/api/online-inquiry",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Unable to submit inquiry. / पूछताछ भेजी नहीं जा सकी।"
+            "Unable to submit inquiry. / पूछताछ भेजी नहीं जा सकी।",
         );
       }
 
-      setSubmittedId(data.inquiryId || data.leadId || "");
-      setSelectedCourses([]);
+      setSubmittedId(
+        data.inquiryId || data.leadId || "",
+      );
+
       e.currentTarget.reset();
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to submit inquiry. / पूछताछ भेजी नहीं जा सकी।"
+          : "Unable to submit inquiry. / पूछताछ भेजी नहीं जा सकी।",
       );
     } finally {
       setSaving(false);
@@ -125,7 +110,7 @@ export default function TamnarInquiryPage() {
 
               <h1 className="mt-6 text-2xl font-black text-slate-900">
                 Inquiry Submitted
-                <span className="block mt-1 text-lg text-slate-500">
+                <span className="mt-1 block text-lg text-slate-500">
                   पूछताछ सफलतापूर्वक भेजी गई
                 </span>
               </h1>
@@ -166,7 +151,7 @@ export default function TamnarInquiryPage() {
 
                 <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
                   Career Inquiry
-                  <span className="block text-base font-semibold text-slate-500 md:text-lg">
+                  <span className="mt-1 block text-base font-semibold text-slate-500 md:text-lg">
                     करियर पूछताछ
                   </span>
                 </h1>
@@ -220,7 +205,7 @@ export default function TamnarInquiryPage() {
                     name="location"
                     required
                     rows={3}
-                    placeholder="Enter your address / अपना पता दर्ज करें"
+                    placeholder="Enter your full address / अपना पूरा पता दर्ज करें"
                     className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10"
                   />
                 </label>
@@ -243,72 +228,25 @@ export default function TamnarInquiryPage() {
                   />
                 </label>
 
-                <div>
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-slate-700">
-                      Which course are you interested in?
-                    </p>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Which course are you interested in? / आप किस पाठ्यक्रम में रुचि रखते हैं? *
+                  </span>
 
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      आप किस पाठ्यक्रम में रुचि रखते हैं?
-                    </p>
+                  <textarea
+                    name="course"
+                    required
+                    rows={3}
+                    placeholder="e.g. BCA, DCA, PGDCA / जैसे BCA, DCA, PGDCA"
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  />
 
-                    <p className="mt-1 text-xs text-slate-400">
-                      You can select multiple courses.
-                      <br />
-                      आप एक से अधिक पाठ्यक्रम चुन सकते हैं।
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {courses.length > 0 ? (
-                      courses.map((course) => {
-                        const selected = selectedCourses.includes(course.id);
-
-                        return (
-                          <button
-                            key={course.id}
-                            type="button"
-                            onClick={() => toggleCourse(course.id)}
-                            className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition ${
-                              selected
-                                ? "border-primary bg-primary/5 ring-2 ring-primary/10"
-                                : "border-slate-200 bg-white hover:border-slate-300"
-                            }`}
-                          >
-                            <span
-                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-black ${
-                                selected
-                                  ? "border-primary bg-primary text-white"
-                                  : "border-slate-300 bg-white text-transparent"
-                              }`}
-                            >
-                              ✓
-                            </span>
-
-                            <span className="min-w-0">
-                              <span className="block text-sm font-bold text-slate-900">
-                                {course.name}
-                              </span>
-
-                              {course.fullName && (
-                                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                                  {course.fullName}
-                                </span>
-                              )}
-                            </span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                        Course list is currently unavailable.
-                        <br />
-                        पाठ्यक्रम सूची अभी उपलब्ध नहीं है।
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    You can enter multiple courses separated by commas.
+                    <br />
+                    आप एक से अधिक पाठ्यक्रम कॉमा लगाकर लिख सकते हैं।
+                  </p>
+                </label>
 
                 {error && (
                   <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
