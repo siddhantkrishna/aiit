@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please enter a valid name and 10-digit mobile number." }, { status: 400 });
     }
 
+    const branch = clean(body.branch, 50).toUpperCase();
     const leadId = `ENQ-${Date.now().toString().slice(-8)}`;
     const [lead] = await db.insert(leads).values({
       leadId,
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       qualification: clean(body.qualification, 500) || null,
       interestedCourseId: body.interestedCourseId ? Number(body.interestedCourseId) : null,
       preferredUniversityId: body.preferredUniversityId ? Number(body.preferredUniversityId) : null,
-      source: "ONLINE_INQUIRY",
+      source: branch === "TAMNAR" ? "TAMNAR_INQUIRY" : "ONLINE_INQUIRY",
       status: "NEW",
       priority: "NORMAL",
       notes: clean(body.message, 1200) || null,
