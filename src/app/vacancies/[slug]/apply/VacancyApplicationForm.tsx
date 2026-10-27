@@ -32,7 +32,19 @@ export default function VacancyApplicationForm({ vacancyId, title }: { vacancyId
     {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
     <div className="grid sm:grid-cols-2 gap-5">
       {fields.map(([name, label, type, required]) => <label key={name} className={`text-sm font-medium text-foreground ${name === "address" ? "sm:col-span-2" : ""}`}>{label}{required ? " *" : ""}<input name={name} required={required} type={type} className="mt-2 w-full rounded-lg border border-border px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"/></label>)}
-      <label className="sm:col-span-2 text-sm font-medium text-foreground">Resume *<input name="resume" required type="file" accept=".pdf,.doc,.docx,application/pdf" className="mt-2 block w-full rounded-lg border border-border px-3 py-2.5"/><span className="mt-1 block text-xs text-muted">PDF, DOC or DOCX up to 5MB.</span></label>
+      <div className="sm:col-span-2">
+        <label htmlFor="vacancy-resume" className="block text-sm font-medium text-foreground">Resume *</label>
+        <input
+          id="vacancy-resume"
+          name="resume"
+          required
+          type="file"
+          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          aria-describedby="vacancy-resume-hint"
+          className="mt-2 block w-full min-w-0 cursor-pointer rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:border-0 file:bg-transparent file:font-medium file:text-foreground"
+        />
+        <p id="vacancy-resume-hint" className="mt-1 text-xs text-muted">PDF, DOC or DOCX up to 5MB.</p>
+      </div>
     </div>
     <label className="flex gap-3 text-sm text-muted"><input required type="checkbox" className="mt-1"/>I confirm that the information provided is accurate and complete.</label>
     <button disabled={submitting} className="w-full sm:w-auto px-7 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark disabled:opacity-60">{submitting ? "Submitting..." : "Submit Application"}</button>
