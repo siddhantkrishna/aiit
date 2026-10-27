@@ -33,7 +33,7 @@ const sidebarLinks = [
   },
   {
     href: "/admin/dashboard/vacancy-applications",
-    label: "Recruitment",
+    label: "Vacancy Applications",
     icon: "👥",
   },
   {
