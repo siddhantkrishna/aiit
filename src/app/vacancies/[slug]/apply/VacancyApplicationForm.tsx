@@ -33,17 +33,16 @@ export default function VacancyApplicationForm({ vacancyId, title }: { vacancyId
     <div className="grid sm:grid-cols-2 gap-5">
       {fields.map(([name, label, type, required]) => <label key={name} className={`text-sm font-medium text-foreground ${name === "address" ? "sm:col-span-2" : ""}`}>{label}{required ? " *" : ""}<input name={name} required={required} type={type} className="mt-2 w-full rounded-lg border border-border px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"/></label>)}
       <div className="sm:col-span-2">
-        <label htmlFor="vacancy-resume" className="block text-sm font-medium text-foreground">Resume *</label>
+        <label htmlFor="vacancy-resume" className="block text-sm font-medium text-foreground">Resume (optional)</label>
         <input
           id="vacancy-resume"
           name="resume"
-          required
           type="file"
           accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
           aria-describedby="vacancy-resume-hint"
           className="mt-2 block w-full min-w-0 cursor-pointer rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:border-0 file:bg-transparent file:font-medium file:text-foreground"
         />
-        <p id="vacancy-resume-hint" className="mt-1 text-xs text-muted">PDF, Word, TXT, RTF, ODT, PNG, JPG, JPEG or WEBP up to 5MB.</p>
+        <p id="vacancy-resume-hint" className="mt-1 text-xs text-muted">Attach a PDF, Word, TXT, RTF, ODT, PNG, JPG, JPEG or WEBP file (max 5MB), or submit without a resume.</p>
       </div>
     </div>
     <label className="flex gap-3 text-sm text-muted"><input required type="checkbox" className="mt-1"/>I confirm that the information provided is accurate and complete.</label>
