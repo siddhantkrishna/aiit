@@ -10,6 +10,13 @@ const ALLOWED_RESUME_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "application/rtf",
+  "text/rtf",
+  "application/vnd.oasis.opendocument.text",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
 ];
 
 export async function POST(req: NextRequest) {
@@ -31,7 +38,7 @@ export async function POST(req: NextRequest) {
     if (!declaration) return NextResponse.json({ error: "Please accept the declaration." }, { status: 400 });
     if (!(resume instanceof File) || resume.size === 0) return NextResponse.json({ error: "Resume is required." }, { status: 400 });
     if (resume.size > MAX_FILE_SIZE || !ALLOWED_RESUME_TYPES.includes(resume.type)) {
-      return NextResponse.json({ error: "Resume must be PDF, DOC, or DOCX and under 5MB." }, { status: 400 });
+      return NextResponse.json({ error: "Resume must be a PDF, Word, TXT, RTF, ODT, PNG, JPG, JPEG or WEBP file under 5MB." }, { status: 400 });
     }
 
     const [vacancy] = await db.select().from(vacancies).where(eq(vacancies.id, vacancyId));
