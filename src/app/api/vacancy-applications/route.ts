@@ -36,8 +36,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please complete all required fields." }, { status: 400 });
     }
     if (!declaration) return NextResponse.json({ error: "Please accept the declaration." }, { status: 400 });
-    if (!(resume instanceof File) || resume.size === 0) return NextResponse.json({ error: "Resume is required." }, { status: 400 });
-    if (resume.size > MAX_FILE_SIZE || !ALLOWED_RESUME_TYPES.includes(resume.type)) {
+    // Browsers send an empty File when an optional file input is left blank.
+    const hasResume = resume instanceof File && resume.name.length > 0;
+    if (resume !== null && !(resume instanceof File)) {
+      return NextResponse.json({ error: "Invalid resume upload." }, { status: 400 });
+    }
+    if (hasResume && (resume.size === 0 || resume.size > MAX_FILE_SIZE || !ALLOWED_RESUME_TYPES.includes(resume.type))) {
       return NextResponse.json({ error: "Resume must be a PDF, Word, TXT, RTF, ODT, PNG, JPG, JPEG or WEBP file under 5MB." }, { status: 400 });
     }
 
@@ -45,20 +49,24 @@ export async function POST(req: NextRequest) {
     if (!vacancy || !vacancy.enabled) return NextResponse.json({ error: "This vacancy is no longer available." }, { status: 404 });
 
     const applicationId = generateVacancyApplicationId();
-    const extension = resume.name.split(".").pop()?.toLowerCase() || "pdf";
-    const objectPath = `vacancies/${applicationId}/resume.${extension}`;
-    const buffer = Buffer.from(await resume.arrayBuffer());
-    const { error: uploadError } = await supabase.storage.from("documents").upload(objectPath, buffer, {
-      contentType: resume.type,
-      upsert: true,
-    });
+    let resumePath: string | null = null;
+    if (hasResume) {
+      const extension = resume.name.split(".").pop()?.toLowerCase() || "pdf";
+      const objectPath = `vacancies/${applicationId}/resume.${extension}`;
+      const buffer = Buffer.from(await resume.arrayBuffer());
+      const { error: uploadError } = await supabase.storage.from("documents").upload(objectPath, buffer, {
+        contentType: resume.type,
+        upsert: true,
+      });
 
-    if (uploadError) {
-      console.error("Resume upload error:", uploadError);
-      return NextResponse.json({ error: "Failed to upload resume." }, { status: 500 });
+      if (uploadError) {
+        console.error("Resume upload error:", uploadError);
+        return NextResponse.json({ error: "Failed to upload resume." }, { status: 500 });
+      }
+
+      const { data: publicUrl } = supabase.storage.from("documents").getPublicUrl(objectPath);
+      resumePath = publicUrl.publicUrl;
     }
-
-    const { data: publicUrl } = supabase.storage.from("documents").getPublicUrl(objectPath);
     const [application] = await db.insert(vacancyApplications).values({
       applicationId,
       vacancyId,
@@ -71,7 +79,7 @@ export async function POST(req: NextRequest) {
       state: String(formData.get("state") || "").trim(),
       qualification,
       experience,
-      resumePath: publicUrl.publicUrl,
+      resumePath,
       status: "pending",
       declaration: true,
     }).returning();
