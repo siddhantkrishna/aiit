@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const SITE = {
   name: "AIIT College",
   fullName: "Aryabhatta Institute of Information Technology",
-  url: "https://aiitcollege.edu.in",
+  url: "https://www.aiitcollege.in",
   description:
     "AIIT College is an educational institution in Gharghoda, Raigarh, Chhattisgarh, India, offering computer education, university programs, distance education, online education, skill development, and professional courses.",
   location: "Gharghoda, Raigarh, Chhattisgarh, India",
