@@ -117,10 +117,13 @@ test('workflow integration on isolated PostgreSQL', { skip: !process.env.AIIT_TE
   const { drizzle } = require('drizzle-orm/pglite');
   const pg = new PGlite();
   await pg.exec(fs.readFileSync(process.env.AIIT_TEST_SCHEMA, 'utf8'));
+  await pg.exec('create role anon; create role authenticated;');
+  await pg.exec(fs.readFileSync('drizzle/0004_restore_vacancy_applications.sql', 'utf8'));
+  await pg.exec(fs.readFileSync('drizzle/0004_restore_vacancy_applications.sql', 'utf8'));
   // Exercise the additive migration against pre-change student/staff tables.
   await pg.exec('alter table students drop column access_code_hash, drop column father_name, drop column mother_name, drop column university_status, drop column university_submitted_at, drop column university_next_action, drop column required_documents, drop column admit_card_path; alter table staff drop column responsibilities; alter table applications drop column qualification;');
-  await pg.exec(fs.readFileSync('drizzle/0004_secure_operations.sql', 'utf8'));
-  await pg.exec(fs.readFileSync('drizzle/0004_secure_operations.sql', 'utf8'));
+  await pg.exec(fs.readFileSync('drizzle/0005_secure_operations.sql', 'utf8'));
+  await pg.exec(fs.readFileSync('drizzle/0005_secure_operations.sql', 'utf8'));
   db = drizzle(pg);
   const [centre] = await db.insert(schema.centres).values({ code: 'GHARGHODA', name: 'Gharghoda' }).returning();
   const [course] = await db.insert(schema.courses).values({ name: 'Verified course', studyMode: 'Regular', verificationStatus: 'VERIFIED' }).returning();
@@ -233,7 +236,7 @@ test('workflow integration on isolated PostgreSQL', { skip: !process.env.AIIT_TE
     const [pending] = await db.select().from(schema.payments).where(eq(schema.payments.id, candidate.id)); assert.equal(pending.paymentStatus, 'PENDING');
   });
   await t.test('storage cutover retains objects and restricts anonymous access only for documents', async () => {
-    await pg.exec("create role anon; create role authenticated; create schema storage; create table storage.buckets (id text primary key, public boolean); create table storage.objects (id text primary key, bucket_id text); insert into storage.buckets values ('documents',true),('assets',true); insert into storage.objects values ('private-file','documents'),('public-file','assets'); alter table storage.objects enable row level security; grant usage on schema storage to anon, authenticated; grant all on storage.objects to anon, authenticated; create policy existing_open_policy on storage.objects for all to anon, authenticated using (true) with check (true);");
+    await pg.exec("create schema storage; create table storage.buckets (id text primary key, public boolean); create table storage.objects (id text primary key, bucket_id text); insert into storage.buckets values ('documents',true),('assets',true); insert into storage.objects values ('private-file','documents'),('public-file','assets'); alter table storage.objects enable row level security; grant usage on schema storage to anon, authenticated; grant all on storage.objects to anon, authenticated; create policy existing_open_policy on storage.objects for all to anon, authenticated using (true) with check (true);");
     const cutover = fs.readFileSync('scripts/private-storage-cutover.sql', 'utf8'); await pg.exec(cutover); await pg.exec(cutover);
     assert.equal((await pg.query("select public from storage.buckets where id='documents'")).rows[0].public, false);
     assert.equal((await pg.query('select count(*)::int as count from storage.objects')).rows[0].count, 2);
@@ -241,6 +244,43 @@ test('workflow integration on isolated PostgreSQL', { skip: !process.env.AIIT_TE
     const visible = await pg.query('select id from storage.objects'); assert.deepEqual(visible.rows.map(row => row.id), ['public-file']);
     await assert.rejects(() => pg.query("insert into storage.objects values ('forbidden','documents')"));
     await pg.exec('reset role');
+  });
+  await t.test('recruitment preserves optional resumes, mobile formats, joined lists and safe status updates', async () => {
+    const route = require('../src/app/api/vacancy-applications/route.ts');
+    const listRoute = require('../src/app/api/admin/vacancy-applications/route.ts');
+    const detailRoute = require('../src/app/api/admin/vacancy-applications/[id]/route.ts');
+    const [vacancy] = await db.insert(schema.vacancies).values({ title: 'Test role', slug: 'test-role' }).returning();
+    async function submit(file) {
+      const form = new FormData();
+      for (const [key, value] of Object.entries({ vacancyId: String(vacancy.id), firstName: 'Applicant', mobile: '9876543210', email: 'applicant@example.test', qualification: 'Graduate', experience: 'Two years', declaration: 'true' })) form.set(key, value);
+      if (file !== undefined) form.set('resume', file);
+      return route.POST(new NextRequest('https://aiit.example.test/api/vacancy-applications', { method: 'POST', body: form }));
+    }
+    const existingUploads = storageObjects.size;
+    for (const file of [undefined, new File([], '', { type: 'application/octet-stream' })]) {
+      const response = await submit(file); assert.equal(response.status, 201);
+      const value = await response.json(); assert.equal('application' in value, false);
+      const [saved] = await db.select().from(schema.vacancyApplications).where(eq(schema.vacancyApplications.applicationId, value.applicationId)); assert.equal(saved.resumePath, null);
+    }
+    assert.equal(storageObjects.size, existingUploads);
+    assert.equal((await submit('not a file')).status, 400);
+    assert.equal((await submit(new File([], 'empty.pdf', { type: 'application/pdf' }))).status, 400);
+    assert.equal((await submit(new File(['fake'], 'fake.pdf', { type: 'application/pdf' }))).status, 400);
+    const files = [
+      new File(['%PDF-1.4'], 'resume.pdf', { type: 'application/pdf' }),
+      new File([new Uint8Array([255,216,255])], 'resume.jpg', { type: 'image/jpeg' }),
+      new File(['Resume in plain text'], 'resume.txt', { type: 'text/plain' }),
+      new File(['{\\rtf1 Resume}'], 'resume.rtf', { type: 'application/rtf' }),
+      new File([new Uint8Array([80,75,3,4])], 'resume.odt', { type: 'application/vnd.oasis.opendocument.text' }),
+    ];
+    let applicationId;
+    for (const file of files) { const response = await submit(file); assert.equal(response.status, 201); applicationId = (await response.json()).applicationId; }
+    const list = await listRoute.GET(request('/api/admin/vacancy-applications', null, adminToken, 'GET')); assert.equal(list.status, 200);
+    const rows = await list.json(); assert.ok(rows.every(row => row.vacancyTitle === 'Test role' && !('resumePath' in row))); assert.equal(rows.filter(row => row.hasResume).length, files.length);
+    const detail = await detailRoute.GET(request('/detail', null, adminToken, 'GET'), context(applicationId)); assert.equal(detail.status, 200); assert.match((await detail.json()).application.resumePath, /expires=120/);
+    assert.equal((await listRoute.PUT(request('/update', { id: applicationId, status: 'shortlisted' }, adminToken, 'PUT'))).status, 200);
+    assert.equal((await listRoute.PUT(request('/update', { id: 'missing', status: 'shortlisted' }, adminToken, 'PUT'))).status, 404);
+    assert.equal((await listRoute.PUT(request('/update', { id: applicationId, status: 'invalid' }, adminToken, 'PUT'))).status, 400);
   });
   await pg.close();
 });

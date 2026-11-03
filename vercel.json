@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "codex/disable-production-seeding": false,
+      "codex/secure-college-operations": false
+    }
+  }
+}

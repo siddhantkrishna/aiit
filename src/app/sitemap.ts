@@ -2,13 +2,20 @@ import type { MetadataRoute } from "next";
 import { db } from "@/db";
 import { vacancies } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { SITE } from "@/lib/seo";
 
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://aiitcollege.in";
+  const baseUrl = SITE.url;
 
   const staticPages: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/sid`,
+      lastModified: new Date("2026-10-28"),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
     {
       url: baseUrl,
       lastModified: new Date(),
