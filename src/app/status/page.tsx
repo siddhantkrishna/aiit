@@ -6,7 +6,8 @@ import { useState } from "react";
 
 interface StatusResult {
   applicationId: string;
-  name: string;
+  applicationStatus: string;
+  nextAction: string | null;
   course: string;
   status: string;
   submittedAt: string;
@@ -21,7 +22,8 @@ const statusDisplay: Record<string, { icon: string; label: string; color: string
 
 export default function StatusPage() {
   const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<"applicationId" | "mobile">("applicationId");
+  const [mobile, setMobile] = useState("");
+  const [dob, setDob] = useState("");
   const [results, setResults] = useState<StatusResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -36,8 +38,7 @@ export default function StatusPage() {
     setSearched(true);
 
     try {
-      const param = searchType === "applicationId" ? `applicationId=${query}` : `mobile=${query}`;
-      const res = await fetch(`/api/applications/status?${param}`);
+      const res = await fetch("/api/applications/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applicationId: query, mobile, dob }) });
       const data = await res.json();
 
       if (res.ok && Array.isArray(data)) {
@@ -63,8 +64,7 @@ export default function StatusPage() {
               Check Application Status
             </h1>
             <p className="text-lg text-blue-200">
-              Enter your Application ID or Mobile Number to check your
-              application status
+              Enter your application number, registered mobile and date of birth. / आवेदन की स्थिति देखें।
             </p>
           </div>
         </section>
@@ -72,43 +72,22 @@ export default function StatusPage() {
         <section className="py-12">
           <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-xl border border-border p-6">
-              <div className="flex gap-4 mb-6">
-                <button
-                  type="button"
-                  onClick={() => { setSearchType("applicationId"); setQuery(""); setSearched(false); }}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    searchType === "applicationId"
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 text-foreground"
-                  }`}
-                >
-                  Application ID
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSearchType("mobile"); setQuery(""); setSearched(false); }}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    searchType === "mobile"
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 text-foreground"
-                  }`}
-                >
-                  Mobile Number
-                </button>
-              </div>
-
               <form onSubmit={handleSearch}>
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={
-                    searchType === "applicationId"
-                      ? "e.g., AIIT-2025-123456"
-                      : "e.g., 9876543210"
-                  }
+                  aria-label="Application number"
+                  required
+                  placeholder="Application number"
                   className="w-full px-4 py-3 border border-border rounded-lg text-sm mb-4 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                 />
+                <label className="block mb-3 text-sm">Registered mobile
+                  <input required aria-label="Registered mobile" inputMode="numeric" pattern="[6-9][0-9]{9}" value={mobile} onChange={e => setMobile(e.target.value)} className="w-full border rounded-lg p-3 mt-1" />
+                </label>
+                <label className="block mb-4 text-sm">Date of birth
+                  <input required aria-label="Date of birth" type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full border rounded-lg p-3 mt-1" />
+                </label>
                 <button
                   type="submit"
                   disabled={loading}
@@ -146,8 +125,9 @@ export default function StatusPage() {
                             </span>
                           </div>
                           <h3 className="text-lg font-bold text-foreground">
-                            {r.name}
+                            {r.applicationStatus || s.label}
                           </h3>
+                          {r.nextAction && <p className="mt-2 text-sm">Action required: {r.nextAction}</p>}
                           <p className="text-sm text-muted mt-1">
                             Course: {r.course}
                           </p>

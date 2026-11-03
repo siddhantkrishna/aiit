@@ -11,6 +11,8 @@ interface Course {
   studyMode: string;
   category: string;
   fee: string;
+  universityId: number | null;
+  verificationStatus: string;
   enabled: boolean;
 }
 
@@ -22,10 +24,14 @@ const emptyCourse = {
   studyMode: "Regular",
   category: "Computer",
   fee: "",
+  universityId: "",
+  verificationStatus: "PENDING",
   enabled: true,
 };
 
 export default function CoursesManagement() {
+  const [search, setSearch] = useState("");
+  const [universityOptions, setUniversityOptions] = useState<{ id: number; name: string }[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -42,7 +48,7 @@ export default function CoursesManagement() {
       .catch(() => setLoading(false));
   }
 
-  useEffect(() => { loadCourses(); }, []);
+  useEffect(() => { loadCourses(); fetch("/api/universities").then(r => r.json()).then(d => { if (Array.isArray(d)) setUniversityOptions(d); }); }, []);
 
   function openAdd() {
     setEditing(null);
@@ -60,6 +66,8 @@ export default function CoursesManagement() {
       studyMode: course.studyMode || "Regular",
       category: course.category || "Computer",
       fee: course.fee || "",
+      universityId: course.universityId ? String(course.universityId) : "",
+      verificationStatus: course.verificationStatus || "PENDING",
       enabled: course.enabled,
     });
     setShowForm(true);
@@ -67,19 +75,21 @@ export default function CoursesManagement() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    let response;
     if (editing) {
-      await fetch(`/api/courses/${editing.id}`, {
+      response = await fetch(`/api/courses/${editing.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
     } else {
-      await fetch("/api/courses", {
+      response = await fetch("/api/courses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
     }
+    if (!response.ok) { const result = await response.json(); window.alert(result.error || "Unable to save."); return; }
     setShowForm(false);
     loadCourses();
   }
@@ -94,7 +104,7 @@ export default function CoursesManagement() {
   }
 
   async function deleteCourse(id: number) {
-    if (!confirm("Delete this course?")) return;
+    if (!confirm("Deactivate this course? Existing admissions will be retained.")) return;
     await fetch(`/api/courses/${id}`, { method: "DELETE" });
     loadCourses();
   }
@@ -115,6 +125,7 @@ export default function CoursesManagement() {
         </button>
       </div>
 
+      <input aria-label="Search courses" placeholder="Search courses" value={search} onChange={e => setSearch(e.target.value)} className="w-full border rounded-lg p-3 mb-4" />
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
@@ -123,6 +134,16 @@ export default function CoursesManagement() {
               {editing ? "Edit Course" : "Add Course"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-3">
+              <label className="block text-sm">University
+                <select aria-label="University" value={form.universityId} onChange={e => setForm({ ...form, universityId: e.target.value })} className="w-full border rounded-lg p-2">
+                  <option value="">AIIT course (no university)</option>{universityOptions.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm">Verification (publish only after checking authorization)
+                <select aria-label="Verification status" value={form.verificationStatus} onChange={e => setForm({ ...form, verificationStatus: e.target.value })} className="w-full border rounded-lg p-2">
+                  {["PENDING", "VERIFIED", "REJECTED"].map(v => <option key={v}>{v}</option>)}
+                </select>
+              </label>
               <div>
                 <label className="block text-sm font-medium mb-1">Short Name *</label>
                 <input
@@ -244,7 +265,7 @@ export default function CoursesManagement() {
               </tr>
             </thead>
             <tbody>
-              {courses.map((course) => (
+              {courses.filter(c => `${c.name} ${c.fullName}`.toLowerCase().includes(search.toLowerCase())).map((course) => (
                 <tr key={course.id} className="border-b border-border hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <p className="font-medium">{course.name}</p>

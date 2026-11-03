@@ -1,4 +1,5 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -22,6 +23,7 @@ const STATUS_OPTIONS = [
   "ALL",
   "ACTIVE",
   "INACTIVE",
+  "ON_LEAVE",
   "ON LEAVE",
   "TERMINATED",
 ];
@@ -32,7 +34,7 @@ function statusClass(status: string) {
       return "bg-green-100 text-green-700";
     case "TERMINATED":
       return "bg-red-100 text-red-700";
-    case "ON LEAVE":
+    case "ON_LEAVE":
       return "bg-yellow-100 text-yellow-700";
     default:
       return "bg-slate-100 text-slate-600";
@@ -110,6 +112,18 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/staff" records={staff} onSaved={loadStaff} title="Add or update staff" fields={[
+        {key: "name", label: "Employee name", type: "text", required: true},
+        {key: "role", label: "Designation"},
+        {key: "centreId", label: "Centre", source: "centres", required: true},
+        {key: "joiningDate", label: "Joining date", type: "date"},
+        {key: "employmentType", label: "Employment type"},
+        {key: "salary", label: "Salary (INR)", type: "number"},
+        {key: "status", label: "Status", options: ["ACTIVE", "INACTIVE", "ON_LEAVE", "TERMINATED"], required: true},
+        {key: "mobile", label: "Mobile"},
+        {key: "email", label: "Email"},
+        {key: "responsibilities", label: "Responsibilities", type: "textarea"},
+      ]} />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">

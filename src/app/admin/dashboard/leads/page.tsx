@@ -1,4 +1,5 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -27,6 +28,9 @@ const STATUS_OPTIONS = [
   "CONTACTED",
   "FOLLOW_UP",
   "INTERESTED",
+  "APPLIED",
+  "ADMITTED",
+  "CLOSED",
   "CONVERTED",
   "LOST",
 ];
@@ -58,6 +62,7 @@ export default function LeadsPage() {
       setError("");
 
       const params = new URLSearchParams();
+      if (new URLSearchParams(window.location.search).get("overdue") === "1") params.set("overdue", "1");
 
       if (search.trim()) {
         params.set("search", search.trim());
@@ -115,6 +120,16 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/leads" records={leads} onSaved={loadLeads} title="Add or update leads" fields={[
+        {key: "name", label: "Name", type: "text", required: true},
+        {key: "mobile", label: "Mobile", type: "text", required: true},
+        {key: "interestedCourseId", label: "Interested course", source: "courses"},
+        {key: "source", label: "Source"},
+        {key: "assignedTo", label: "Assigned staff", source: "staff"},
+        {key: "nextFollowUpAt", label: "Next follow-up", type: "datetime-local"},
+        {key: "status", label: "Status", options: ["NEW", "CONTACTED", "INTERESTED", "FOLLOW_UP", "APPLIED", "ADMITTED", "CLOSED", "CONVERTED", "LOST"], required: true},
+        {key: "notes", label: "Notes", type: "textarea"},
+      ]} />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
@@ -127,6 +142,7 @@ export default function LeadsPage() {
 
           <p className="text-slate-500 mt-2">
             Track every enquiry from first contact to admission.
+            <a href="/admin/dashboard/leads?overdue=1" className="ml-3 text-red-700 underline">Overdue follow-ups</a> <a href="/admin/dashboard/leads" className="ml-3 text-blue-600 underline">All leads</a>
           </p>
         </div>
 

@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { vacancies } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Vacancies - AIIT College",
   description: "Explore current job opportunities at AIIT College and apply for open positions.",

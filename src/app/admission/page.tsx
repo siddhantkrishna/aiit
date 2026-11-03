@@ -11,6 +11,7 @@ interface Course {
   fullName: string;
   studyMode: string;
   category: string;
+  universityId: number | null;
   enabled: boolean;
 }
 
@@ -55,6 +56,9 @@ const indianStates = [
 ];
 
 export default function AdmissionPage() {
+  const [centres, setCentres] = useState<{id: number; name: string}[]>([]);
+  const [qualification, setQualification] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,23 +72,25 @@ export default function AdmissionPage() {
   const [paymentUploaded, setPaymentUploaded] = useState(false);
 
   useEffect(() => {
+    fetch("/api/centres").then(r => r.json()).then(d => { if (Array.isArray(d)) setCentres(d); }).catch(() => setError("Unable to load centres. Please retry."));
     fetch("/api/courses")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setCourses(data.filter((c: Course) => c.enabled));
-        }
+          setSelectedCourse(new URLSearchParams(window.location.search).get("course") || "");
+        } else { setError("Unable to load verified admission options. Please retry or contact AIIT."); }
       })
-      .catch(() => {});
+      .catch(() => setError("Unable to load admission options. Please retry."));
 
     fetch("/api/universities")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setUniversities(data.filter((u: University) => u.enabled));
-        }
+        } else { setError("Unable to load verified admission options. Please retry or contact AIIT."); }
       })
-      .catch(() => {});
+      .catch(() => setError("Unable to load admission options. Please retry."));
   }, []);
 
   useEffect(() => {
@@ -118,8 +124,8 @@ export default function AdmissionPage() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Payment screenshot must be less than 5MB.");
+    if (file.size > 3 * 1024 * 1024) {
+      setError("Payment screenshot must be less than 3MB.");
       e.target.value = "";
       setPaymentScreenshot(null);
       setPaymentPreview("");
@@ -140,6 +146,9 @@ export default function AdmissionPage() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
+    if ([...formData.values()].reduce((sum, value) => sum + (value instanceof File ? value.size : 0), 0) > 4 * 1024 * 1024) {
+      setError("Keep combined documents below 4MB. Compress scans before submitting."); setLoading(false); return;
+    }
     if (!formData.get("declaration")) {
       setError("Please accept the declaration to submit.");
       setLoading(false);
@@ -154,7 +163,7 @@ export default function AdmissionPage() {
 
       const data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
         setApplicationId(data.applicationId);
         setSubmitted(true);
         window.scrollTo(0, 0);
@@ -192,7 +201,7 @@ export default function AdmissionPage() {
 
       const data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
         setPaymentUploaded(true);
         setError("");
       } else {
@@ -252,7 +261,7 @@ export default function AdmissionPage() {
 
                 <p className="text-sm text-muted max-w-xl mx-auto mb-6">
                   Scan the QR code below using any UPI app and make your
-                  payment. You may pay any amount you wish.
+                  payment. Confirm the registration amount with AIIT before paying.
                 </p>
 
                 <div className="flex justify-center mb-6">
@@ -299,6 +308,7 @@ export default function AdmissionPage() {
 
                       <div className="border-2 border-dashed border-border rounded-xl p-5">
                         <input
+                          aria-label="Payment screenshot"
                           type="file"
                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                           onChange={handlePaymentScreenshotChange}
@@ -306,7 +316,7 @@ export default function AdmissionPage() {
                         />
 
                         <p className="text-xs text-muted mt-2">
-                          JPG, PNG or WebP · Maximum 5MB
+                          JPG, PNG or WebP · Maximum 3MB
                         </p>
 
                         {paymentPreview && (
@@ -341,8 +351,7 @@ export default function AdmissionPage() {
                       </div>
 
                       <p className="text-xs text-muted mt-3">
-                        Payment verification is done manually using the
-                        uploaded transaction screenshot.
+                        AIIT verifies payment against the bank or cash record. A screenshot alone does not confirm payment.
                       </p>
                     </>
                   )}
@@ -445,15 +454,20 @@ export default function AdmissionPage() {
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Course Selection
                 </h2>
+                <label className="block mb-4 text-sm font-medium">Centre *
+                  <select name="centreId" aria-label="Centre" required className="mt-1 w-full rounded-lg border p-3"><option value="">Choose centre</option>{centres.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                </label>
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="courseId" className="block text-sm font-medium text-foreground mb-1">
                       Select Course <span className="text-red-500">*</span>
                     </label>
 
-                    <select
+                    <select id="courseId"
                       name="courseId"
+                      value={selectedCourse}
+                      onChange={e => setSelectedCourse(e.target.value)}
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                     >
@@ -468,19 +482,21 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="universityId" className="block text-sm font-medium text-foreground mb-1">
                       University
                     </label>
 
-                    <select
+                    <select id="universityId"
                       name="universityId"
+                      value={courses.find(c => String(c.id) === selectedCourse)?.universityId || ""}
+                      onChange={() => {}}
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                     >
                       <option value="">
-                        Select university (optional)
+                        AIIT course / choose course first
                       </option>
 
-                      {universities.map((u) => (
+                      {universities.filter(u => u.id === courses.find(c => String(c.id) === selectedCourse)?.universityId).map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.shortName})
                         </option>
@@ -489,20 +505,19 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="studyMode" className="block text-sm font-medium text-foreground mb-1">
                       Study Mode <span className="text-red-500">*</span>
                     </label>
 
-                    <select
+                    <select id="studyMode"
                       name="studyMode"
+                      value={courses.find(c => String(c.id) === selectedCourse)?.studyMode || ""}
+                      onChange={() => {}}
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                     >
                       <option value="">Choose study mode</option>
-                      <option value="Regular">Regular</option>
-                      <option value="Distance">Distance</option>
-                      <option value="Online">Online</option>
-                      <option value="Private">Private</option>
+                      {courses.find(c => String(c.id) === selectedCourse)?.studyMode && <option>{courses.find(c => String(c.id) === selectedCourse)?.studyMode}</option>}
                     </select>
                   </div>
                 </div>
@@ -515,10 +530,10 @@ export default function AdmissionPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-1">
                       First Name <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="firstName"
                       name="firstName"
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -527,10 +542,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-1">
                       Last Name
                     </label>
-                    <input
+                    <input id="lastName"
                       name="lastName"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                       placeholder="Enter last name"
@@ -538,11 +553,11 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="fatherName" className="block text-sm font-medium text-foreground mb-1">
                       Father&apos;s Name{" "}
                       <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="fatherName"
                       name="fatherName"
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -551,11 +566,11 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="motherName" className="block text-sm font-medium text-foreground mb-1">
                       Mother&apos;s Name{" "}
                       <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="motherName"
                       name="motherName"
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -564,10 +579,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="dob" className="block text-sm font-medium text-foreground mb-1">
                       Date of Birth <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="dob"
                       type="date"
                       name="dob"
                       required
@@ -576,10 +591,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="gender" className="block text-sm font-medium text-foreground mb-1">
                       Gender <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <select id="gender"
                       name="gender"
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -592,11 +607,11 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="mobile" className="block text-sm font-medium text-foreground mb-1">
                       Mobile Number{" "}
                       <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="mobile"
                       name="mobile"
                       type="tel"
                       required
@@ -607,10 +622,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
                       Email
                     </label>
-                    <input
+                    <input id="email"
                       name="email"
                       type="email"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -627,10 +642,10 @@ export default function AdmissionPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="address" className="block text-sm font-medium text-foreground mb-1">
                       Address <span className="text-red-500">*</span>
                     </label>
-                    <textarea
+                    <textarea id="address"
                       name="address"
                       required
                       rows={2}
@@ -640,10 +655,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="city" className="block text-sm font-medium text-foreground mb-1">
                       City <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="city"
                       name="city"
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -652,10 +667,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="state" className="block text-sm font-medium text-foreground mb-1">
                       State <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <select id="state"
                       name="state"
                       required
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -671,10 +686,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="pinCode" className="block text-sm font-medium text-foreground mb-1">
                       PIN Code <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <input id="pinCode"
                       name="pinCode"
                       required
                       pattern="[0-9]{6}"
@@ -689,6 +704,9 @@ export default function AdmissionPage() {
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Education Details
                 </h2>
+                <label className="block mb-5 text-sm font-medium">Highest qualification *
+                  <select name="qualification" aria-label="Highest qualification" required value={qualification} onChange={e => setQualification(e.target.value)} className="mt-1 w-full border rounded-lg p-3"><option value="">Choose qualification</option>{["10th", "12th", "Diploma", "Graduate", "Postgraduate", "Other"].map(v => <option key={v}>{v}</option>)}</select>
+                </label>
 
                 <h3 className="text-sm font-semibold text-primary mb-3">
                   10th (High School)
@@ -696,10 +714,10 @@ export default function AdmissionPage() {
 
                 <div className="grid sm:grid-cols-3 gap-4 mb-6">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="tenthBoard" className="block text-sm font-medium text-foreground mb-1">
                       Board
                     </label>
-                    <input
+                    <input id="tenthBoard"
                       name="tenthBoard"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., CBSE, MP Board"
@@ -707,10 +725,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="tenthYear" className="block text-sm font-medium text-foreground mb-1">
                       Year
                     </label>
-                    <input
+                    <input id="tenthYear"
                       name="tenthYear"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 2020"
@@ -718,10 +736,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="tenthPercentage" className="block text-sm font-medium text-foreground mb-1">
                       Percentage
                     </label>
-                    <input
+                    <input id="tenthPercentage"
                       name="tenthPercentage"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 75%"
@@ -735,10 +753,10 @@ export default function AdmissionPage() {
 
                 <div className="grid sm:grid-cols-3 gap-4 mb-6">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="twelfthBoard" className="block text-sm font-medium text-foreground mb-1">
                       Board
                     </label>
-                    <input
+                    <input id="twelfthBoard"
                       name="twelfthBoard"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., CBSE, MP Board"
@@ -746,10 +764,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="twelfthYear" className="block text-sm font-medium text-foreground mb-1">
                       Year
                     </label>
-                    <input
+                    <input id="twelfthYear"
                       name="twelfthYear"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 2022"
@@ -757,10 +775,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="twelfthPercentage" className="block text-sm font-medium text-foreground mb-1">
                       Percentage
                     </label>
-                    <input
+                    <input id="twelfthPercentage"
                       name="twelfthPercentage"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 70%"
@@ -774,10 +792,10 @@ export default function AdmissionPage() {
 
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="gradUniversity" className="block text-sm font-medium text-foreground mb-1">
                       University
                     </label>
-                    <input
+                    <input id="gradUniversity"
                       name="gradUniversity"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="University name"
@@ -785,10 +803,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="gradYear" className="block text-sm font-medium text-foreground mb-1">
                       Year
                     </label>
-                    <input
+                    <input id="gradYear"
                       name="gradYear"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 2024"
@@ -796,10 +814,10 @@ export default function AdmissionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="gradPercentage" className="block text-sm font-medium text-foreground mb-1">
                       Percentage
                     </label>
-                    <input
+                    <input id="gradPercentage"
                       name="gradPercentage"
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm"
                       placeholder="e.g., 65%"
@@ -814,7 +832,7 @@ export default function AdmissionPage() {
                 </h2>
 
                 <p className="text-sm text-muted mb-4">
-                  Accepted formats: JPG, PNG, PDF. Max size: 5MB per file.
+                  Accepted formats: JPG, PNG, PDF. Max size: 3MB per file, 4MB combined.
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -825,7 +843,7 @@ export default function AdmissionPage() {
                     ["twelfthMarksheet", "12th Marksheet", "image/*,.pdf"],
                     [
                       "gradMarksheet",
-                      "Graduation Marksheet (Optional)",
+                      "Graduation Marksheet (if applicable)",
                       "image/*,.pdf",
                     ],
                     ["otherDoc", "Other Document (Optional)", "image/*,.pdf"],
@@ -838,6 +856,8 @@ export default function AdmissionPage() {
                       <input
                         type="file"
                         name={name}
+                        aria-label={label}
+                        required={["photo", "aadhaar", "tenthMarksheet"].includes(name) || name === "twelfthMarksheet" && ["12th", "Graduate", "Postgraduate"].includes(qualification) || name === "gradMarksheet" && ["Graduate", "Postgraduate"].includes(qualification)}
                         accept={accept}
                         className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
                       />

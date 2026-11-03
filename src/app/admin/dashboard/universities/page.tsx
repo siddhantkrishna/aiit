@@ -9,6 +9,7 @@ interface University {
   location: string;
   description: string;
   website: string;
+  authorizationStatus: string;
   enabled: boolean;
 }
 
@@ -18,6 +19,7 @@ const emptyUni = {
   location: "",
   description: "",
   website: "",
+  authorizationStatus: "PENDING",
   enabled: true,
 };
 
@@ -54,6 +56,7 @@ export default function UniversitiesManagement() {
       location: uni.location || "",
       description: uni.description || "",
       website: uni.website || "",
+      authorizationStatus: uni.authorizationStatus || "PENDING",
       enabled: uni.enabled,
     });
     setShowForm(true);
@@ -61,25 +64,27 @@ export default function UniversitiesManagement() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    let response;
     if (editing) {
-      await fetch(`/api/universities/${editing.id}`, {
+      response = await fetch(`/api/universities/${editing.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
     } else {
-      await fetch("/api/universities", {
+      response = await fetch("/api/universities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
     }
+    if (!response.ok) { const result = await response.json(); window.alert(result.error || "Unable to save."); return; }
     setShowForm(false);
     loadUnis();
   }
 
   async function deleteUni(id: number) {
-    if (!confirm("Delete this university?")) return;
+    if (!confirm("Deactivate this university? Existing records will be retained.")) return;
     await fetch(`/api/universities/${id}`, { method: "DELETE" });
     loadUnis();
   }
@@ -108,6 +113,11 @@ export default function UniversitiesManagement() {
               {editing ? "Edit University" : "Add University"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-3">
+              <label className="block text-sm">Verification (publish only after checking authorization)
+                <select aria-label="Verification status" value={form.authorizationStatus} onChange={e => setForm({ ...form, authorizationStatus: e.target.value })} className="w-full border rounded-lg p-2">
+                  {["PENDING", "VERIFIED", "REJECTED"].map(v => <option key={v}>{v}</option>)}
+                </select>
+              </label>
               <div>
                 <label className="block text-sm font-medium mb-1">University Name *</label>
                 <input

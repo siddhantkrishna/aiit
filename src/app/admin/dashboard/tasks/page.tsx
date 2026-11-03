@@ -1,4 +1,5 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -137,6 +138,16 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/tasks" records={tasks} onSaved={loadTasks} title="Add or update tasks" fields={[
+        {key: "taskName", label: "Task", type: "text", required: true},
+        {key: "description", label: "Description", type: "textarea"},
+        {key: "assignedTo", label: "Assigned staff", source: "staff", required: true},
+        {key: "centreId", label: "Centre", source: "centres"},
+        {key: "dueDate", label: "Due date", type: "date", required: true},
+        {key: "priority", label: "Priority", options: ["LOW", "NORMAL", "HIGH", "URGENT"], required: true},
+        {key: "status", label: "Status", options: ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"], required: true},
+        {key: "remarks", label: "Remarks", type: "textarea"},
+      ]} />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">

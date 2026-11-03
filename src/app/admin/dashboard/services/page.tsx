@@ -1,4 +1,5 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useState } from "react";
 
@@ -20,6 +21,7 @@ const STATUS_OPTIONS = [
   "ALL",
   "PENDING",
   "IN PROGRESS",
+  "IN_PROGRESS",
   "COMPLETED",
   "CANCELLED",
 ];
@@ -119,6 +121,15 @@ export default function ServicesPage() {
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/services" records={services} onSaved={loadServices} title="Add or update services" fields={[
+        {key: "studentId", label: "Student", source: "students", required: true},
+        {key: "serviceType", label: "Service", options: ["EXAM_FORM", "ADMIT_CARD", "RESULT", "CERTIFICATE", "UNIVERSITY_DOCUMENTATION", "GENERAL"], required: true},
+        {key: "assignedTo", label: "Assigned staff", source: "staff"},
+        {key: "dueDate", label: "Due date", type: "date"},
+        {key: "status", label: "Status", options: ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"], required: true},
+        {key: "notes", label: "Notes", type: "textarea"},
+        {key: "referenceNumber", label: "Reference"},
+      ]} />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">

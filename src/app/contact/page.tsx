@@ -73,6 +73,7 @@ export default function ContactPage() {
 
                 <div className="bg-white rounded-xl border border-border overflow-hidden">
                   <iframe
+                title="AIIT College Gharghoda location map"
                     src="https://www.google.com/maps?q=AIIT+College+Gharghoda&output=embed"
                     width="100%"
                     height="280"

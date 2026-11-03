@@ -1,4 +1,5 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -137,17 +138,28 @@ export default function AccountingPage() {
   }, [transactions, search]);
 
   const income = filteredTransactions
-    .filter((item) => item.transactionType === "INCOME")
+    .filter((item) => item.transactionType === "INCOME" && item.status === "POSTED")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const expenses = filteredTransactions
-    .filter((item) => item.transactionType === "EXPENSE")
+    .filter((item) => item.transactionType === "EXPENSE" && item.status === "POSTED")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const net = income - expenses;
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/accounting" records={transactions} onSaved={loadTransactions} title="Add or update accounting" fields={[
+        {key: "transactionDate", label: "Date", type: "date", required: true},
+        {key: "centreId", label: "Centre", source: "centres", required: true},
+        {key: "transactionType", label: "Type", options: ["INCOME", "EXPENSE"], required: true},
+        {key: "category", label: "Category", type: "text", required: true},
+        {key: "description", label: "Description", type: "textarea"},
+        {key: "amount", label: "Amount (INR)", type: "number", required: true},
+        {key: "paymentMode", label: "Payment mode", options: ["CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "CARD", "OTHER"], required: true},
+        {key: "referenceNumber", label: "Reference"},
+        {key: "status", label: "Status", options: ["POSTED", "VOID"], required: true},
+      ]} />
       <div>
         <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
           Finance

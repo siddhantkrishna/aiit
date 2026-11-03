@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -50,6 +51,7 @@ export default function StudentsPage() {
       setError("");
 
       const params = new URLSearchParams();
+      if (new URLSearchParams(window.location.search).get("universityPending") === "1") params.set("universityPending", "1");
 
       if (status !== "ALL") {
         params.set("status", status);
@@ -227,7 +229,7 @@ export default function StudentsPage() {
                         </p>
 
                         <p className="text-xs text-slate-400 mt-1">
-                          {student.studentId}
+                          <Link href={`/admin/dashboard/students/${student.id}`} className="text-blue-600 underline">{student.studentId}</Link>
                         </p>
                       </td>
 

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { payments, students } from "@/db/schema";
+import { randomUUID } from "node:crypto";
+import { money } from "@/lib/validation";
 import { getStudentFromRequest } from "@/lib/student-auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const sessionId = getStudentFromRequest(req);
+    const sessionId = await getStudentFromRequest(req);
     if (!sessionId) return NextResponse.json({ error: "Student login required." }, { status: 401 });
 
     const [student] = await db.select({
@@ -34,10 +36,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const sessionId = getStudentFromRequest(req);
+    const sessionId = await getStudentFromRequest(req);
     if (!sessionId) return NextResponse.json({ error: "Student login required." }, { status: 401 });
 
     const body = await req.json();
+    if (!money.safeParse(body.amount).success) return NextResponse.json({ error: "Enter a valid amount with at most two decimals." }, { status: 400 });
     const amount = Number(body.amount);
     const referenceNumber = String(body.referenceNumber || "").trim().slice(0, 255);
 
@@ -46,10 +49,10 @@ export async function POST(req: NextRequest) {
 
     const pending = Number(student.amountPending || 0);
     if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: "Enter a valid amount." }, { status: 400 });
-    if (amount > pending && pending > 0) return NextResponse.json({ error: `Payment cannot exceed the current pending fee of ₹${pending.toLocaleString("en-IN")}.` }, { status: 400 });
+    if (amount > pending) return NextResponse.json({ error: `Payment cannot exceed the current pending fee of ₹${pending.toLocaleString("en-IN")}.` }, { status: 400 });
     if (!referenceNumber) return NextResponse.json({ error: "Enter the UPI transaction/reference number after payment." }, { status: 400 });
 
-    const receiptId = `FEE-${Date.now().toString().slice(-10)}`;
+    const receiptId = `FEE-${randomUUID()}`;
     const [payment] = await db.insert(payments).values({
       receiptId, studentId: student.id, paymentDate: new Date().toISOString().slice(0, 10), amount: String(amount),
       paymentType: "STUDENT_FEE", paymentMode: "UPI", referenceNumber, paymentStatus: "PENDING", notes: "Online fee payment submitted by student.",

@@ -1,9 +1,14 @@
+import { randomUUID } from "node:crypto";
+import { staffSchema, id } from "@/lib/validation";
+import { invalidReference } from "@/lib/record-validation";
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { staff } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
 
@@ -34,7 +39,7 @@ export async function GET(req: NextRequest) {
       .from(staff)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(desc(staff.createdAt));
@@ -50,80 +55,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { return save(req, false); }
+export async function PUT(req: NextRequest) { return save(req, true); }
+
+async function save(req: NextRequest, updating: boolean) {
+  const admin = requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
-
-    const name = String(body.name || "").trim();
-
-    if (!name) {
-      return NextResponse.json(
-        { error: "Staff name is required." },
-        { status: 400 },
-      );
-    }
-
-    const employeeId =
-      String(body.employeeId || "").trim() ||
-      `EMP-${Date.now().toString().slice(-8)}`;
-
-    const [member] = await db
-      .insert(staff)
-      .values({
-        employeeId,
-        name,
-
-        role:
-          String(body.role || "").trim() || null,
-
-        department:
-          String(body.department || "").trim() || null,
-
-        centreId:
-          body.centreId ? Number(body.centreId) : null,
-
-        joiningDate:
-          body.joiningDate || null,
-
-        employmentType:
-          String(body.employmentType || "").trim() || null,
-
-        salary:
-          body.salary != null
-            ? String(body.salary)
-            : null,
-
-        managerId:
-          body.managerId ? Number(body.managerId) : null,
-
-        status:
-          String(body.status || "ACTIVE"),
-
-        email:
-          String(body.email || "").trim() || null,
-
-        mobile:
-          String(body.mobile || "").trim() || null,
-
-        updatedAt: new Date(),
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        staff: member,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error("Failed to create staff:", error);
-
-    return NextResponse.json(
-      { error: "Failed to create staff." },
-      { status: 500 },
-    );
-  }
+    if (updating && !id.safeParse(body.id).success) return NextResponse.json({ error: "Valid record ID required." }, { status: 400 });
+    const [existing] = updating ? await db.select().from(staff).where(eq(staff.id, Number(body.id))) : [];
+    if (updating && !existing) return NextResponse.json({ error: "Record not found." }, { status: 404 });
+    const parsed = staffSchema.safeParse({ ...existing, ...body });
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const referenceError = await invalidReference(parsed.data);
+    if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+    const values = { ...parsed.data, updatedAt: new Date() };
+    const [record] = updating
+      ? await db.update(staff).set(values).where(eq(staff.id, Number(body.id))).returning()
+      : await db.insert(staff).values({ ...values, employeeId: `EMP-${randomUUID()}` }).returning();
+    return NextResponse.json({ success: true, staff: record }, { status: updating ? 200 : 201 });
+  } catch { return NextResponse.json({ error: "Unable to save staff." }, { status: 400 }); }
 }
-
 export const dynamic = "force-dynamic";

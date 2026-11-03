@@ -1,135 +1,35 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const [
-      applications,
-      pending,
-      approved,
-      rejected,
-      today,
-      leads,
-      students,
-      activeStudents,
-      collections,
-      pendingFees,
-      staff,
-      openTasks,
-      openServices,
-    ] = await Promise.all([
-      db.execute(sql`
-        select count(*)::int as count
-        from public.applications
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.applications
-        where application_status in (
-          'RECEIVED',
-          'UNDER REVIEW',
-          'DOCUMENTS PENDING',
-          'SUBMITTED'
-        )
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.applications
-        where application_status in (
-          'VERIFIED',
-          'APPROVED',
-          'COMPLETED'
-        )
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.applications
-        where application_status in (
-          'REJECTED',
-          'CANCELLED'
-        )
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.applications
-        where created_at >= current_date
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.leads
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.students
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.students
-        where student_status = 'ACTIVE'
-      `),
-
-      db.execute(sql`
-        select coalesce(sum(amount), 0)::numeric as total
-        from public.payments
-        where payment_status in ('RECEIVED', 'VERIFIED')
-      `),
-
-      db.execute(sql`
-        select coalesce(sum(amount_pending), 0)::numeric as total
-        from public.students
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.staff
-        where status = 'ACTIVE'
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.staff_tasks
-        where status in ('PENDING', 'IN_PROGRESS')
-      `),
-
-      db.execute(sql`
-        select count(*)::int as count
-        from public.student_services
-        where status not in ('COMPLETED', 'CANCELLED')
-      `),
-    ]);
-
-    return NextResponse.json({
-      total: Number(applications.rows[0]?.count ?? 0),
-      pending: Number(pending.rows[0]?.count ?? 0),
-      approved: Number(approved.rows[0]?.count ?? 0),
-      rejected: Number(rejected.rows[0]?.count ?? 0),
-      today: Number(today.rows[0]?.count ?? 0),
-
-      leads: Number(leads.rows[0]?.count ?? 0),
-      students: Number(students.rows[0]?.count ?? 0),
-      activeStudents: Number(activeStudents.rows[0]?.count ?? 0),
-      collections: Number(collections.rows[0]?.total ?? 0),
-      pendingFees: Number(pendingFees.rows[0]?.total ?? 0),
-      staff: Number(staff.rows[0]?.count ?? 0),
-      openTasks: Number(openTasks.rows[0]?.count ?? 0),
-      openServices: Number(openServices.rows[0]?.count ?? 0),
-    });
-  } catch (error) {
-    console.error("Admin stats error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to load dashboard statistics." },
-      { status: 500 },
-    );
-  }
+    const result = await db.execute(sql`
+      with clock as (select (now() at time zone 'Asia/Kolkata')::date as today),
+      bounds as (select today, ((today::timestamp at time zone 'Asia/Kolkata') at time zone 'UTC') as day_start, date_trunc('month', today)::date as month_start from clock)
+      select
+        (select count(*) from applications) as total,
+        (select count(*) from applications where status = 'pending') as pending,
+        (select count(*) from applications where status = 'approved') as approved,
+        (select count(*) from applications where status = 'rejected') as rejected,
+        (select count(*) from applications where created_at >= bounds.day_start) as today,
+        (select count(*) from leads where created_at >= bounds.day_start) as todayEnquiries,
+        (select count(*) from students where student_status = 'ACTIVE') as activeStudents,
+        (select count(*) from students where admission_date >= bounds.month_start) as admissionsThisMonth,
+        (select coalesce(sum(amount), 0) from payments where payment_status = 'VERIFIED') as collections,
+        (select coalesce(sum(amount), 0) from payments where payment_status = 'VERIFIED' and payment_date >= bounds.month_start) as collectionsThisMonth,
+        (select coalesce(sum(amount_pending), 0) from students) as pendingFees,
+        (select count(*) from leads where next_follow_up_at < now() at time zone 'UTC' and status not in ('ADMITTED', 'CLOSED', 'CONVERTED', 'LOST')) as overdueFollowUps,
+        (select count(*) from students where student_status = 'ACTIVE' and university_id is not null and university_status is distinct from 'COMPLETED') as pendingUniversityWork,
+        (select count(distinct staff_id) from staff_attendance where attendance_date = bounds.today and leave_status in ('PRESENT', 'LATE', 'HALF_DAY', 'HALF DAY')) as attendanceToday,
+        (select count(*) from staff_tasks where status not in ('COMPLETED', 'CANCELLED')) as openTasks,
+        (select count(*) from student_services where status not in ('COMPLETED', 'CANCELLED')) as openServices
+      from bounds
+    `);
+    const row = result.rows[0] || {};
+    return NextResponse.json(Object.fromEntries(Object.entries(row).map(([key, value]) => [key.toLowerCase(), Number(value || 0)])));
+  } catch { return NextResponse.json({ error: "Unable to load operational summary." }, { status: 503 }); }
 }
-
 export const dynamic = "force-dynamic";

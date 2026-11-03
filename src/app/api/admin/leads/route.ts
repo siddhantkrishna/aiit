@@ -1,9 +1,14 @@
+import { randomUUID } from "node:crypto";
+import { leadSchema, id } from "@/lib/validation";
+import { invalidReference } from "@/lib/record-validation";
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or, and, sql } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
 
@@ -11,6 +16,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status")?.trim() || "";
 
     const conditions = [];
+    if (searchParams.get("overdue") === "1") conditions.push(sql`next_follow_up_at < now() at time zone 'UTC' and status not in ('ADMITTED', 'CLOSED', 'CONVERTED', 'LOST')`);
 
     if (search) {
       conditions.push(
@@ -32,7 +38,7 @@ export async function GET(req: NextRequest) {
       .from(leads)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(desc(leads.createdAt));
@@ -48,79 +54,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { return save(req, false); }
+export async function PUT(req: NextRequest) { return save(req, true); }
+
+async function save(req: NextRequest, updating: boolean) {
+  const admin = requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
-
-    const name = String(body.name || "").trim();
-    const mobile = String(body.mobile || "").trim();
-
-    if (!name || !mobile) {
-      return NextResponse.json(
-        { error: "Name and mobile are required." },
-        { status: 400 },
-      );
-    }
-
-    const leadId =
-      String(body.leadId || "").trim() ||
-      `LEAD-${Date.now().toString().slice(-8)}`;
-
-    const [lead] = await db
-      .insert(leads)
-      .values({
-        leadId,
-        name,
-        mobile,
-        whatsapp:
-          String(body.whatsapp || "").trim() || null,
-        email:
-          String(body.email || "").trim() || null,
-        location:
-          String(body.location || "").trim() || null,
-        qualification:
-          String(body.qualification || "").trim() || null,
-        interestedCourseId:
-          body.interestedCourseId
-            ? Number(body.interestedCourseId)
-            : null,
-        preferredUniversityId:
-          body.preferredUniversityId
-            ? Number(body.preferredUniversityId)
-            : null,
-        source:
-          String(body.source || "").trim() || null,
-        centreId:
-          body.centreId ? Number(body.centreId) : null,
-        assignedTo:
-          body.assignedTo ? Number(body.assignedTo) : null,
-        status: String(body.status || "NEW"),
-        priority: String(body.priority || "NORMAL"),
-        nextAction:
-          String(body.nextAction || "").trim() || null,
-        expectedAdmissionDate:
-          body.expectedAdmissionDate || null,
-        notes:
-          String(body.notes || "").trim() || null,
-        updatedAt: new Date(),
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        lead,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error("Failed to create lead:", error);
-
-    return NextResponse.json(
-      { error: "Failed to create lead." },
-      { status: 500 },
-    );
-  }
+    if (updating && !id.safeParse(body.id).success) return NextResponse.json({ error: "Valid record ID required." }, { status: 400 });
+    const [existing] = updating ? await db.select().from(leads).where(eq(leads.id, Number(body.id))) : [];
+    if (updating && !existing) return NextResponse.json({ error: "Record not found." }, { status: 404 });
+    const parsed = leadSchema.safeParse({ ...existing, ...body });
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const referenceError = await invalidReference(parsed.data);
+    if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+    const values = { ...parsed.data, updatedAt: new Date() };
+    const [record] = updating
+      ? await db.update(leads).set(values).where(eq(leads.id, Number(body.id))).returning()
+      : await db.insert(leads).values({ ...values, leadId: `LEAD-${randomUUID()}` }).returning();
+    return NextResponse.json({ success: true, lead: record }, { status: updating ? 200 : 201 });
+  } catch { return NextResponse.json({ error: "Unable to save leads." }, { status: 400 }); }
 }
-
 export const dynamic = "force-dynamic";

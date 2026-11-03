@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
@@ -8,6 +9,7 @@ function text(value: unknown) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const search = text(req.nextUrl.searchParams.get("search"));
     const rows = await db
@@ -31,6 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
     const title = text(body.title);
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
     const id = Number(body.id);
@@ -100,6 +104,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!Number.isInteger(id) || id < 1) return NextResponse.json({ error: "A valid class ID is required." }, { status: 400 });

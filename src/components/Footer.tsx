@@ -69,11 +69,13 @@ export default function Footer() {
             <h3 className="font-semibold text-lg mb-4">Location</h3>
             <a
               href="https://maps.app.goo.gl/2XwJPmpcnshehBYY9"
+              aria-label="Open AIIT College location in Google Maps"
               target="_blank"
               rel="noopener noreferrer"
               className="block rounded-lg overflow-hidden"
             >
               <iframe
+                title="AIIT College Gharghoda location map"
                 src="https://www.google.com/maps?q=AIIT+College+Gharghoda&output=embed"
                 width="100%"
                 height="160"

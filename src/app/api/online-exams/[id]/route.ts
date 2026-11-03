@@ -18,7 +18,7 @@ function publicQuestions(raw: unknown): Question[] {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const sessionId = getStudentFromRequest(_req);
+    const sessionId = await getStudentFromRequest(_req);
     if (!sessionId) return NextResponse.json({ error: "Student login required." }, { status: 401 });
     const id = Number((await params).id);
     const [exam] = await db.select().from(onlineExams).where(and(eq(onlineExams.id, id), eq(onlineExams.published, true)));
@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const sessionId = getStudentFromRequest(req);
+    const sessionId = await getStudentFromRequest(req);
     if (!sessionId) return NextResponse.json({ error: "Student login required." }, { status: 401 });
     const id = Number((await params).id);
     const body = await req.json();

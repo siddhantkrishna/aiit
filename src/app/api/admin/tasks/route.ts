@@ -1,9 +1,14 @@
+import { randomUUID } from "node:crypto";
+import { taskSchema, id } from "@/lib/validation";
+import { invalidReference } from "@/lib/record-validation";
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { staffTasks } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
 
@@ -37,7 +42,7 @@ export async function GET(req: NextRequest) {
       .from(staffTasks)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(desc(staffTasks.createdAt));
@@ -53,69 +58,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { return save(req, false); }
+export async function PUT(req: NextRequest) { return save(req, true); }
+
+async function save(req: NextRequest, updating: boolean) {
+  const admin = requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
-
-    const taskName = String(body.taskName || "").trim();
-
-    if (!taskName) {
-      return NextResponse.json(
-        { error: "Task name is required." },
-        { status: 400 },
-      );
-    }
-
-    const taskId =
-      String(body.taskId || "").trim() ||
-      `TASK-${Date.now().toString().slice(-8)}`;
-
-    const [task] = await db
-      .insert(staffTasks)
-      .values({
-        taskId,
-        staffId: body.staffId
-          ? Number(body.staffId)
-          : null,
-        centreId: body.centreId
-          ? Number(body.centreId)
-          : null,
-        taskDate: body.taskDate || null,
-        taskName,
-        description:
-          String(body.description || "").trim() || null,
-        deadline: body.deadline
-          ? new Date(body.deadline)
-          : null,
-        assignedTo: body.assignedTo
-          ? Number(body.assignedTo)
-          : null,
-        priority:
-          String(body.priority || "NORMAL"),
-        dueDate: body.dueDate || null,
-        status:
-          String(body.status || "PENDING"),
-        remarks:
-          String(body.remarks || "").trim() || null,
-        updatedAt: new Date(),
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        task,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error("Failed to create task:", error);
-
-    return NextResponse.json(
-      { error: "Failed to create task." },
-      { status: 500 },
-    );
-  }
+    if (updating && !id.safeParse(body.id).success) return NextResponse.json({ error: "Valid record ID required." }, { status: 400 });
+    const [existing] = updating ? await db.select().from(staffTasks).where(eq(staffTasks.id, Number(body.id))) : [];
+    if (updating && !existing) return NextResponse.json({ error: "Record not found." }, { status: 404 });
+    const parsed = taskSchema.safeParse({ ...existing, ...body });
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const referenceError = await invalidReference(parsed.data);
+    if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+    const values = { ...parsed.data, updatedAt: new Date() };
+    const [record] = updating
+      ? await db.update(staffTasks).set(values).where(eq(staffTasks.id, Number(body.id))).returning()
+      : await db.insert(staffTasks).values({ ...values, taskId: `TASK-${randomUUID()}` }).returning();
+    return NextResponse.json({ success: true, task: record }, { status: updating ? 200 : 201 });
+  } catch { return NextResponse.json({ error: "Unable to save tasks." }, { status: 400 }); }
 }
-
 export const dynamic = "force-dynamic";

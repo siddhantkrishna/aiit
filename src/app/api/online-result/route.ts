@@ -6,7 +6,7 @@ import { getStudentFromRequest } from "@/lib/student-auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const sessionId = getStudentFromRequest(req);
+    const sessionId = await getStudentFromRequest(req);
     if (!sessionId) return NextResponse.json({ error: "Student login required." }, { status: 401 });
 
     const rows = await db.select().from(studentResults)

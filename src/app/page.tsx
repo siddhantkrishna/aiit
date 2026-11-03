@@ -1,3 +1,8 @@
+import { db } from "@/db";
+import { courses as courseTable, universities as universityTable, centres } from "@/db/schema";
+import { publicCourse, publicUniversity } from "@/lib/catalogue";
+import { eq } from "drizzle-orm";
+export const dynamic = "force-dynamic";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Image from "next/image";
@@ -9,17 +14,17 @@ const features = [
   {
     icon: "🎓",
     title: "University Programs",
-    desc: "Affiliated with top universities like CVRU, AISECT & RNTU",
+    desc: "Explore verified university programs and admission guidance",
   },
   {
     icon: "💻",
     title: "Computer Education",
-    desc: "DCA, PGDCA, Hardware, Typing, Tally & more",
+    desc: "Explore current computer courses in our verified catalogue",
   },
   {
     icon: "📚",
     title: "Distance Education",
-    desc: "Study from home with flexible schedules",
+    desc: "Ask about permitted modes for your selected program",
   },
   {
     icon: "🏆",
@@ -29,38 +34,13 @@ const features = [
   {
     icon: "🌐",
     title: "Online Education",
-    desc: "Learn anywhere, anytime with digital resources",
+    desc: "Check verified online options for your selected program",
   },
   {
     icon: "📋",
     title: "Career Guidance",
     desc: "Expert counseling for your career path",
   },
-];
-
-const universities = [
-  {
-    name: "Dr. C.V. Raman University",
-    short: "CVRU",
-    desc: "UGC recognized university offering diverse programs",
-  },
-  {
-    name: "AISECT University",
-    short: "AISECT",
-    desc: "Leading university in technology and professional education",
-  },
-  {
-    name: "RNTU",
-    short: "RNTU",
-    desc: "Rabindranath Tagore University for holistic education",
-  },
-];
-
-const stats = [
-  { value: "1000+", label: "Students Enrolled" },
-  { value: "50+", label: "Courses Offered" },
-  { value: "3+", label: "Partner Universities" },
-  { value: "10+", label: "Years of Excellence" },
 ];
 
 const admissionSteps = [
@@ -73,11 +53,11 @@ const admissionSteps = [
 const faqs = [
   {
     q: "What courses does AIIT College offer?",
-    a: "We offer a wide range of courses including DCA, PGDCA, BCA, MCA, B.Sc, M.Sc, B.Com, M.Com, BA, MA, MBA, B.Ed, D.El.Ed, B.Pharma, D.Pharma, Nursing, Computer Hardware, Typing, Tally, and many more.",
+    a: "Our Courses page lists currently verified programs. Contact AIIT to confirm eligibility, fees and availability for your selected program.",
   },
   {
     q: "Which universities are affiliated with AIIT?",
-    a: "AIIT College is affiliated with Dr. C.V. Raman University (CVRU), AISECT University, and RNTU (Rabindranath Tagore University).",
+    a: "The Universities page lists relationships verified by AIIT. Contact the office for current authorization and program details.",
   },
   {
     q: "How can I apply for admission?",
@@ -93,7 +73,7 @@ const faqs = [
   },
   {
     q: "Is distance education available?",
-    a: "Yes, we offer distance education, online education, and private education modes for various courses.",
+    a: "Permitted study modes vary by program. Check the verified course listing and confirm the mode with AIIT before applying.",
   },
 ];
 
@@ -113,7 +93,20 @@ export const metadata = pageMetadata({
   ],
 });
 
-export default function HomePage() {
+export default async function HomePage() {
+  let universities: { name: string; short: string; desc: string }[] = [];
+  let availableModes: string[] = [];
+  let courseCount = 0;
+  let centreCount = 0;
+  try {
+    const [verifiedUniversities, verifiedCourses, activeCentres] = await Promise.all([
+      db.select().from(universityTable).where(publicUniversity), db.select().from(courseTable).where(publicCourse), db.select({ id: centres.id }).from(centres).where(eq(centres.status, "ACTIVE")),
+    ]);
+    universities = verifiedUniversities.map(u => ({ name: u.name, short: u.shortName || u.name.charAt(0), desc: u.description || "Contact AIIT for current program details." }));
+    availableModes = [...new Set(verifiedCourses.map(c => c.studyMode).filter((mode): mode is string => !!mode))];
+    courseCount = verifiedCourses.length; centreCount = activeCentres.length;
+  } catch { /* Keep public information unavailable until it can be verified. */ }
+  const stats = [{ value: String(centreCount), label: "Centres" }, { value: String(courseCount), label: "Verified Courses" }, { value: String(universities.length), label: "Verified Universities" }, { value: "Online", label: "Admission Applications" }];
   return (
     <>
       <Navbar />
@@ -202,7 +195,7 @@ export default function HomePage() {
                 online education, and professional disciplines.
               </p>
               <p className="text-muted leading-relaxed mb-6">
-                Affiliated with top universities, we offer a wide range of
+                Through verified institutional relationships, we provide guidance on
                 courses from diploma to post-graduation level. Our mission is to
                 empower every student with knowledge, skills, and values for a
                 successful career.
@@ -277,7 +270,7 @@ export default function HomePage() {
               Partner Universities
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Affiliated with Top Universities
+              Verified University Relationships
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
@@ -349,12 +342,7 @@ export default function HomePage() {
             </h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: "🏫", title: "Regular", desc: "Full-time on-campus learning" },
-              { icon: "📡", title: "Distance", desc: "Study from anywhere at your pace" },
-              { icon: "🌐", title: "Online", desc: "Digital classroom experience" },
-              { icon: "📝", title: "Private", desc: "Self-paced private study mode" },
-            ].map((m) => (
+            {availableModes.map(title => ({ title, icon: "📚", desc: "Available for verified programs shown in our catalogue" })).map((m) => (
               <div
                 key={m.title}
                 className="bg-white p-6 rounded-xl border border-border text-center"

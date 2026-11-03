@@ -7,13 +7,13 @@ export function cn(...inputs: ClassValue[]) {
 
 export function generateApplicationId(): string {
   const year = new Date().getFullYear();
-  const random = Math.floor(100000 + Math.random() * 900000);
+  const random = crypto.randomUUID().replaceAll("-", "").slice(0, 20).toUpperCase();
   return `AIIT-${year}-${random}`;
 }
 
 export function generateVacancyApplicationId(): string {
   const year = new Date().getFullYear();
-  const random = Math.floor(100000 + Math.random() * 900000);
+  const random = crypto.randomUUID().replaceAll("-", "").slice(0, 20).toUpperCase();
   return `AIIT-VAC-${year}-${random}`;
 }
 

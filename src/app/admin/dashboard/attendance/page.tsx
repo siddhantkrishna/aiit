@@ -1,10 +1,12 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useMemo, useState } from "react";
 
 type Attendance = {
   id: number;
   staffId: number;
+  staffName?: string | null;
   centreId: number | null;
   attendanceDate: string;
   checkIn: string | null;
@@ -17,7 +19,9 @@ type Attendance = {
 const LEAVE_OPTIONS = [
   "ALL",
   "PRESENT",
+  "LATE",
   "ABSENT",
+  "HALF_DAY",
   "HALF DAY",
   "LEAVE",
 ];
@@ -103,6 +107,15 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/attendance" records={attendance} onSaved={loadAttendance} title="Add or update attendance" fields={[
+        {key: "staffId", label: "Employee", source: "staff", required: true},
+        {key: "centreId", label: "Centre", source: "centres"},
+        {key: "attendanceDate", label: "Attendance date", type: "date", required: true},
+        {key: "checkIn", label: "Check-in (local time)", type: "datetime-local"},
+        {key: "checkOut", label: "Check-out (local time)", type: "datetime-local"},
+        {key: "lateMinutes", label: "Late minutes", type: "number"},
+        {key: "leaveStatus", label: "Attendance", options: ["PRESENT", "LATE", "LEAVE", "ABSENT", "HALF_DAY"], required: true},
+      ]} />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
@@ -210,7 +223,7 @@ export default function AttendancePage() {
                       className="border-b border-slate-100 last:border-0"
                     >
                       <td className="px-5 py-4 text-sm font-semibold text-slate-900">
-                        Staff #{record.staffId}
+                        {record.staffName || `Staff #${record.staffId}`}
                       </td>
 
                       <td className="px-5 py-4 text-sm text-slate-600">
