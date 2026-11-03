@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/db";
 import { vacancies } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
-
-const JWT_SECRET = process.env.JWT_SECRET || "aiit-college-admin-secret-2025";
-
-function authorized(req: NextRequest) {
-  const token = req.cookies.get("admin_token")?.value;
-  if (!token) return false;
-
-  try {
-    jwt.verify(token, JWT_SECRET);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function slugify(value: string) {
   return value
@@ -32,7 +18,7 @@ function clean(value: unknown) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!requireAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -53,7 +39,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!requireAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -121,7 +107,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!requireAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -213,7 +199,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!requireAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,141 +1,50 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
+import { requireAdmin } from "@/lib/admin-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const [dailyResult, monthlyResult, centresResult] =
-      await Promise.all([
-        db.execute(sql`
-          select *
-          from public.management_daily_summary
-          limit 1
-        `),
-
-        db.execute(sql`
-          select *
-          from public.management_monthly_summary
-          limit 1
-        `),
-
-        db.execute(sql`
-          select *
-          from public.management_centre_performance
-          order by centre_id
-        `),
-      ]);
-
-    const dailyRow = dailyResult.rows[0] || {};
-    const monthlyRow = monthlyResult.rows[0] || {};
-
-    const numberValue = (value: unknown) =>
-      Number(value ?? 0);
-
-    return NextResponse.json({
-      daily: {
-        reportDate:
-          dailyRow.report_date ||
-          new Date().toISOString().slice(0, 10),
-
-        newLeads: numberValue(
-          dailyRow.new_leads,
+    const result = await db.execute(sql`
+      with bounds as (select (now() at time zone 'Asia/Kolkata')::date as today),
+      periods as (select today, date_trunc('month', today)::date as month_start, ((today::timestamp at time zone 'Asia/Kolkata') at time zone 'UTC') as day_start from bounds)
+      select json_build_object(
+        'daily', json_build_object(
+          'reportDate', p.today,
+          'newLeads', (select count(*) from leads where created_at >= p.day_start),
+          'newApplications', (select count(*) from applications where created_at >= p.day_start),
+          'newAdmissions', (select count(*) from students where admission_date = p.today),
+          'collectionsToday', (select coalesce(sum(amount), 0) from payments where payment_status = 'VERIFIED' and payment_date = p.today),
+          'expensesToday', (select coalesce(sum(amount), 0) from accounting_transactions where status = 'POSTED' and transaction_type = 'EXPENSE' and transaction_date = p.today)
+            + (select coalesce(sum(e.amount), 0) from expenses e where e.expense_date = p.today and coalesce(e.status, 'POSTED') not in ('VOID', 'CANCELLED') and not exists (select 1 from accounting_transactions a where a.related_expense_id = e.id)),
+          'activeStaff', (select count(*) from staff where status = 'ACTIVE'),
+          'openTasks', (select count(*) from staff_tasks where status not in ('COMPLETED', 'CANCELLED')),
+          'openServices', (select count(*) from student_services where status not in ('COMPLETED', 'CANCELLED'))
         ),
-
-        newApplications: numberValue(
-          dailyRow.new_applications,
+        'monthly', json_build_object(
+          'monthStart', p.month_start,
+          'leads', (select count(*) from leads where created_at >= ((p.month_start::timestamp at time zone 'Asia/Kolkata') at time zone 'UTC')),
+          'applications', (select count(*) from applications where created_at >= ((p.month_start::timestamp at time zone 'Asia/Kolkata') at time zone 'UTC')),
+          'admissions', (select count(*) from students where admission_date >= p.month_start),
+          'collections', (select coalesce(sum(amount), 0) from payments where payment_status = 'VERIFIED' and payment_date >= p.month_start),
+          'expenses', (select coalesce(sum(amount), 0) from accounting_transactions where status = 'POSTED' and transaction_type = 'EXPENSE' and transaction_date >= p.month_start)
+            + (select coalesce(sum(e.amount), 0) from expenses e where e.expense_date >= p.month_start and coalesce(e.status, 'POSTED') not in ('VOID', 'CANCELLED') and not exists (select 1 from accounting_transactions a where a.related_expense_id = e.id)),
+          'studentsWithPendingFees', (select count(*) from students where amount_pending > 0)
         ),
-
-        newAdmissions: numberValue(
-          dailyRow.new_admissions,
-        ),
-
-        collectionsToday: numberValue(
-          dailyRow.collections_today,
-        ),
-
-        expensesToday: numberValue(
-          dailyRow.expenses_today,
-        ),
-
-        activeStaff: numberValue(
-          dailyRow.active_staff,
-        ),
-
-        openTasks: numberValue(
-          dailyRow.open_tasks,
-        ),
-
-        openServices: numberValue(
-          dailyRow.open_services,
-        ),
-      },
-
-      monthly: {
-        monthStart:
-          monthlyRow.month_start ||
-          new Date().toISOString().slice(0, 10),
-
-        leads: numberValue(monthlyRow.leads),
-
-        applications: numberValue(
-          monthlyRow.applications,
-        ),
-
-        admissions: numberValue(
-          monthlyRow.admissions,
-        ),
-
-        collections: numberValue(
-          monthlyRow.collections,
-        ),
-
-        expenses: numberValue(
-          monthlyRow.expenses,
-        ),
-
-        netCashflow: numberValue(
-          monthlyRow.net_cashflow,
-        ),
-
-        studentsWithPendingFees: numberValue(
-          monthlyRow.students_with_pending_fees,
-        ),
-      },
-
-      centres: centresResult.rows.map((row) => ({
-        centreId: numberValue(row.centre_id),
-        centreCode: String(
-          row.centre_code || "",
-        ),
-        centreName: String(
-          row.centre_name || "",
-        ),
-        leads: numberValue(row.leads),
-        applications: numberValue(
-          row.applications,
-        ),
-        admissions: numberValue(
-          row.admissions,
-        ),
-        collections: numberValue(
-          row.collections,
-        ),
-      })),
-    });
-  } catch (error) {
-    console.error(
-      "Failed to load management reports:",
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "Failed to load management reports.",
-      },
-      { status: 500 },
-    );
-  }
+        'centres', (select coalesce(json_agg(c), '[]'::json) from (
+          select centres.id as "centreId", code as "centreCode", name as "centreName",
+            (select count(*) from leads where centre_id = centres.id) as leads,
+            (select count(*) from applications where centre_id = centres.id) as applications,
+            (select count(*) from students where centre_id = centres.id) as admissions,
+            (select coalesce(sum(amount), 0) from payments where centre_id = centres.id and payment_status = 'VERIFIED') as collections
+          from centres order by name
+        ) c)
+      ) as report from periods p
+    `);
+    const report = result.rows[0]?.report as { daily: Record<string, number>; monthly: Record<string, number>; centres: unknown[] };
+    report.monthly.netCashflow = Number(report.monthly.collections) - Number(report.monthly.expenses);
+    return NextResponse.json(report);
+  } catch { return NextResponse.json({ error: "Unable to load management report." }, { status: 503 }); }
 }
-
 export const dynamic = "force-dynamic";

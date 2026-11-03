@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/request-security";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { admin } from "@/db/schema";
@@ -14,7 +15,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
     const { email, password } = await req.json();
+    if (typeof email !== "string" || email.length > 255 || !email.includes("@") || typeof password !== "string" || password.length < 1 || Buffer.byteLength(password, "utf8") > 72) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 400 });
+    }
 
+    const limited = await rateLimit(req, "admin-account", 10, email.trim().toLowerCase());
+    if (limited) return limited;
     const user = await db
       .select()
       .from(admin)
@@ -36,9 +42,9 @@ export async function POST(req: NextRequest) {
     }
 
     const token = jwt.sign(
-      { id: user[0].id, email: user[0].email },
+      { id: user[0].id, email: user[0].email, role: "admin" },
       JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "8h", algorithm: "HS256", audience: "aiit-admin", issuer: "aiit" }
     );
 
     const response = NextResponse.json({
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 86400,
+      maxAge: 28800,
       path: "/",
     });
 

@@ -1,506 +1,102 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { applications, courses, documents } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { applications, applicationStatusHistory, courses, universities, centres, documents } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { supabase } from "@/lib/supabase";
 import { generateApplicationId } from "@/lib/utils";
 import { requireAdmin } from "@/lib/admin-auth";
+import { applicationSchema } from "@/lib/validation";
+import { requirePrivateBucket, uploadPrivateFile, validateUpload } from "@/lib/private-storage";
+import jwt from "jsonwebtoken";
 
-const MAX_PAYMENT_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_PAYMENT_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-];
+const documentTypes = ["photo", "aadhaar", "tenthMarksheet", "twelfthMarksheet", "gradMarksheet", "otherDoc"];
 
-const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_DOCUMENT_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-];
-
-const ADMISSION_DOCUMENTS = [
-  { key: "photo", label: "Passport Photo", required: false },
-  { key: "aadhaar", label: "Aadhaar Card", required: false },
-  { key: "tenthMarksheet", label: "10th Marksheet", required: false },
-  { key: "twelfthMarksheet", label: "12th Marksheet", required: false },
-  { key: "gradMarksheet", label: "Graduation Marksheet", required: false },
-  { key: "otherDoc", label: "Other Document", required: false },
-] as const;
-
-function getFileExtension(file: File) {
-  const original = file.name.split(".").pop()?.toLowerCase();
-  if (original && /^[a-z0-9]{1,8}$/.test(original)) return original;
-
-  switch (file.type) {
-    case "application/pdf":
-      return "pdf";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    default:
-      return "jpg";
-  }
-}
-
-async function uploadAdmissionDocuments(
-  applicationId: string,
-  formData: FormData,
-) {
-  const uploaded: string[] = [];
-  const rows: Array<{
-    applicationId: string;
-    docType: string;
-    fileName: string;
-    filePath: string;
-    fileSize: number;
-  }> = [];
-
+function ownsApplication(req: NextRequest, applicationId: string) {
+  if (requireAdmin(req)) return true;
+  const token = req.cookies.get("application_upload")?.value;
+  const secret = process.env.JWT_SECRET;
+  if (!token || !secret) return false;
   try {
-    for (const definition of ADMISSION_DOCUMENTS) {
-      const value = formData.get(definition.key);
-      if (!(value instanceof File) || value.size === 0) continue;
-
-      if (value.size > MAX_DOCUMENT_FILE_SIZE) {
-        throw new Error(`${definition.label} must be less than 5MB.`);
-      }
-
-      if (!ALLOWED_DOCUMENT_TYPES.includes(value.type)) {
-        throw new Error(`${definition.label} must be JPG, PNG, WebP, or PDF.`);
-      }
-
-      const extension = getFileExtension(value);
-      const objectPath = `applications/${applicationId}/${definition.key}.${extension}`;
-      const buffer = Buffer.from(await value.arrayBuffer());
-
-      const { error } = await supabase.storage.from("documents").upload(objectPath, buffer, {
-        contentType: value.type,
-        upsert: true,
-      });
-
-      if (error) {
-        throw new Error(`Failed to upload ${definition.label.toLowerCase()}.`);
-      }
-
-      uploaded.push(objectPath);
-      const { data } = supabase.storage.from("documents").getPublicUrl(objectPath);
-
-      rows.push({
-        applicationId,
-        docType: definition.key,
-        fileName: value.name,
-        filePath: data.publicUrl,
-        fileSize: value.size,
-      });
-    }
-
-    if (rows.length > 0) {
-      await db.insert(documents).values(rows);
-    }
-
-    return { rows };
-  } catch (error) {
-    if (uploaded.length > 0) {
-      await supabase.storage.from("documents").remove(uploaded).catch(() => undefined);
-    }
-    throw error;
-  }
-}
-
-type ApplicationPayload = {
-  applicationId?: unknown;
-  courseId?: unknown;
-  universityId?: unknown;
-  studyMode?: unknown;
-  firstName?: unknown;
-  lastName?: unknown;
-  fatherName?: unknown;
-  motherName?: unknown;
-  dob?: unknown;
-  gender?: unknown;
-  mobile?: unknown;
-  email?: unknown;
-  address?: unknown;
-  city?: unknown;
-  state?: unknown;
-  pinCode?: unknown;
-  tenthBoard?: unknown;
-  tenthYear?: unknown;
-  tenthPercentage?: unknown;
-  twelfthBoard?: unknown;
-  twelfthYear?: unknown;
-  twelfthPercentage?: unknown;
-  gradUniversity?: unknown;
-  gradYear?: unknown;
-  gradPercentage?: unknown;
-  declaration?: unknown;
-};
-
-function asString(value: unknown): string {
-  return String(value ?? "").trim();
-}
-
-async function uploadPaymentScreenshot(applicationId: string, file: File) {
-  if (file.size === 0) {
-    return { error: "Payment screenshot is empty." };
-  }
-
-  if (file.size > MAX_PAYMENT_FILE_SIZE) {
-    return { error: "Payment screenshot must be less than 5MB." };
-  }
-
-  if (!ALLOWED_PAYMENT_TYPES.includes(file.type)) {
-    return { error: "Payment screenshot must be JPG, PNG, or WebP." };
-  }
-
-  const extension =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : "jpg";
-
-  const objectPath = `applications/${applicationId}/payment-screenshot.${extension}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(objectPath, buffer, {
-      contentType: file.type,
-      upsert: true,
-    });
-
-  if (uploadError) {
-    console.error("Payment screenshot upload error:", uploadError);
-    return { error: "Failed to upload payment screenshot." };
-  }
-
-  const { data } = supabase.storage
-    .from("documents")
-    .getPublicUrl(objectPath);
-
-  return { publicUrl: data.publicUrl };
+    const claims = jwt.verify(token, secret, { algorithms: ["HS256"], audience: "aiit-application-upload", issuer: "aiit" });
+    return typeof claims !== "string" && claims.applicationId === applicationId;
+  } catch { return false; }
 }
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    if (!requireAdmin(req)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const rows = await db
-      .select()
-      .from(applications)
-      .orderBy(desc(applications.createdAt));
-
-    return NextResponse.json(rows);
-  } catch (error) {
-    console.error("Error fetching applications:", error);
-
-    return NextResponse.json(
-      { error: "Failed to fetch applications" },
-      { status: 500 },
-    );
+    // Document access is granted only by the authorized detail endpoint.
+    const rows = await db.select().from(applications).orderBy(desc(applications.createdAt));
+    return NextResponse.json(rows.map(({ paymentScreenshotPath, ...row }) => ({ ...row, hasPaymentScreenshot: !!paymentScreenshotPath })));
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch applications" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
+  const uploaded: string[] = [];
   try {
-    const contentType = req.headers.get("content-type") || "";
-
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await req.formData();
-
-      const paymentScreenshot = formData.get("paymentScreenshot");
-      const existingApplicationId = asString(
-        formData.get("applicationId"),
-      );
-
-      if (
-        existingApplicationId &&
-        paymentScreenshot instanceof File &&
-        paymentScreenshot.size > 0
-      ) {
-        const [existingApplication] = await db
-          .select()
-          .from(applications)
-          .where(
-            eq(applications.applicationId, existingApplicationId),
-          );
-
-        if (!existingApplication) {
-          return NextResponse.json(
-            { error: "Application not found." },
-            { status: 404 },
-          );
-        }
-
-        const upload = await uploadPaymentScreenshot(
-          existingApplicationId,
-          paymentScreenshot,
-        );
-
-        if ("error" in upload) {
-          return NextResponse.json(
-            { error: upload.error },
-            { status: 500 },
-          );
-        }
-
-        const [updatedApplication] = await db
-          .update(applications)
-          .set({
-            paymentScreenshotPath: upload.publicUrl,
-            paymentScreenshotUploadedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(
-            eq(applications.applicationId, existingApplicationId),
-          )
-          .returning();
-
-        return NextResponse.json({
-          success: true,
-          applicationId: existingApplicationId,
-          application: updatedApplication,
-        });
-      }
-
-      const payload: ApplicationPayload = {
-        courseId: formData.get("courseId"),
-        universityId: formData.get("universityId"),
-        studyMode: formData.get("studyMode"),
-        firstName: formData.get("firstName"),
-        lastName: formData.get("lastName"),
-        fatherName: formData.get("fatherName"),
-        motherName: formData.get("motherName"),
-        dob: formData.get("dob"),
-        gender: formData.get("gender"),
-        mobile: formData.get("mobile"),
-        email: formData.get("email"),
-        address: formData.get("address"),
-        city: formData.get("city"),
-        state: formData.get("state"),
-        pinCode: formData.get("pinCode"),
-        tenthBoard: formData.get("tenthBoard"),
-        tenthYear: formData.get("tenthYear"),
-        tenthPercentage: formData.get("tenthPercentage"),
-        twelfthBoard: formData.get("twelfthBoard"),
-        twelfthYear: formData.get("twelfthYear"),
-        twelfthPercentage: formData.get("twelfthPercentage"),
-        gradUniversity: formData.get("gradUniversity"),
-        gradYear: formData.get("gradYear"),
-        gradPercentage: formData.get("gradPercentage"),
-        declaration: formData.get("declaration"),
-      };
-
-      const courseId = Number(payload.courseId);
-      const universityValue = asString(payload.universityId);
-      const universityId = universityValue ? Number(universityValue) : null;
-      const declaration = payload.declaration === "true";
-
-      if (
-        !Number.isInteger(courseId) ||
-        courseId < 1 ||
-        !asString(payload.firstName) ||
-        !asString(payload.fatherName) ||
-        !asString(payload.motherName) ||
-        !asString(payload.dob) ||
-        !asString(payload.gender) ||
-        !asString(payload.mobile) ||
-        !asString(payload.address) ||
-        !asString(payload.city) ||
-        !asString(payload.state) ||
-        !asString(payload.pinCode)
-      ) {
-        return NextResponse.json(
-          { error: "Please complete all required fields." },
-          { status: 400 },
-        );
-      }
-
-      if (!declaration) {
-        return NextResponse.json(
-          { error: "Please accept the declaration." },
-          { status: 400 },
-        );
-      }
-
-      const [course] = await db
-        .select()
-        .from(courses)
-        .where(eq(courses.id, courseId));
-
-      if (!course || !course.enabled) {
-        return NextResponse.json(
-          { error: "Selected course is not available." },
-          { status: 400 },
-        );
-      }
-
-      const applicationId = generateApplicationId();
-
-      const [application] = await db
-        .insert(applications)
-        .values({
-          applicationId,
-          courseId,
-          universityId:
-            universityId && Number.isInteger(universityId)
-              ? universityId
-              : null,
-          studyMode: asString(payload.studyMode) || null,
-          firstName: asString(payload.firstName),
-          lastName: asString(payload.lastName),
-          fatherName: asString(payload.fatherName),
-          motherName: asString(payload.motherName),
-          dob: asString(payload.dob),
-          gender: asString(payload.gender),
-          mobile: asString(payload.mobile),
-          email: asString(payload.email),
-          address: asString(payload.address),
-          city: asString(payload.city),
-          state: asString(payload.state),
-          pinCode: asString(payload.pinCode),
-          tenthBoard: asString(payload.tenthBoard) || null,
-          tenthYear: asString(payload.tenthYear) || null,
-          tenthPercentage: asString(payload.tenthPercentage) || null,
-          twelfthBoard: asString(payload.twelfthBoard) || null,
-          twelfthYear: asString(payload.twelfthYear) || null,
-          twelfthPercentage:
-            asString(payload.twelfthPercentage) || null,
-          gradUniversity:
-            asString(payload.gradUniversity) || null,
-          gradYear: asString(payload.gradYear) || null,
-          gradPercentage:
-            asString(payload.gradPercentage) || null,
-          declaration: true,
-          status: "pending",
-        })
-        .returning();
-
-      try {
-        await uploadAdmissionDocuments(applicationId, formData);
-      } catch (documentError) {
-        await db.delete(applications).where(eq(applications.applicationId, applicationId));
-        const message = documentError instanceof Error ? documentError.message : "Document upload failed.";
-        return NextResponse.json({ error: message }, { status: 400 });
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          applicationId,
-          application,
-        },
-        { status: 201 },
-      );
+    if (!process.env.JWT_SECRET) return NextResponse.json({ error: "Submission temporarily unavailable." }, { status: 503 });
+    const multipart = req.headers.get("content-type")?.includes("multipart/form-data");
+    const form = multipart ? await req.formData() : null;
+    const body = form ? Object.fromEntries(form.entries()) : await req.json();
+    if (body.applicationId) {
+      if (!ownsApplication(req, String(body.applicationId))) return NextResponse.json({ error: "Application upload authorization required. Contact AIIT for assistance." }, { status: 403 });
+      const [existing] = await db.select({ id: applications.id }).from(applications).where(eq(applications.applicationId, String(body.applicationId)));
+      if (!existing) return NextResponse.json({ error: "Application not found." }, { status: 404 });
+      if (!(body.paymentScreenshot instanceof File)) return NextResponse.json({ error: "Select a screenshot." }, { status: 400 });
+      await requirePrivateBucket();
+      const path = await uploadPrivateFile(`applications/${body.applicationId}`, body.paymentScreenshot, true);
+      uploaded.push(path);
+      await db.update(applications).set({ paymentScreenshotPath: path, paymentScreenshotUploadedAt: new Date(), updatedAt: new Date() }).where(eq(applications.id, existing.id));
+      return NextResponse.json({ success: true, applicationId: body.applicationId, message: "Screenshot submitted for manual verification." });
     }
-
-    const body = (await req.json()) as ApplicationPayload;
-    const courseId = Number(body.courseId);
-    const universityValue = asString(body.universityId);
-    const universityId = universityValue ? Number(universityValue) : null;
-
-    if (
-      !Number.isInteger(courseId) ||
-      courseId < 1 ||
-      !asString(body.firstName) ||
-      !asString(body.fatherName) ||
-      !asString(body.motherName) ||
-      !asString(body.dob) ||
-      !asString(body.gender) ||
-      !asString(body.mobile) ||
-      !asString(body.address) ||
-      !asString(body.city) ||
-      !asString(body.state) ||
-      !asString(body.pinCode)
-    ) {
-      return NextResponse.json(
-        { error: "Please complete all required fields." },
-        { status: 400 },
-      );
+    const parsed = applicationSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const value = parsed.data;
+    const [course] = await db.select().from(courses).where(and(eq(courses.id, value.courseId), eq(courses.enabled, true), eq(courses.verificationStatus, "VERIFIED")));
+    if (!course || value.studyMode !== course.studyMode || value.universityId !== course.universityId) return NextResponse.json({ error: "Choose the verified course, university and study mode shown in the catalogue." }, { status: 400 });
+    if (value.universityId) {
+      const [university] = await db.select({ id: universities.id }).from(universities).where(and(eq(universities.id, value.universityId), eq(universities.enabled, true), eq(universities.authorizationStatus, "VERIFIED")));
+      if (!university) return NextResponse.json({ error: "University authorization is not verified." }, { status: 400 });
     }
-
-    if (body.declaration !== true && body.declaration !== "true") {
-      return NextResponse.json(
-        { error: "Please accept the declaration." },
-        { status: 400 },
-      );
+    const [centre] = await db.select().from(centres).where(and(eq(centres.id, value.centreId), eq(centres.status, "ACTIVE")));
+    if (!centre) return NextResponse.json({ error: "Select an active AIIT centre." }, { status: 400 });
+    const files = documentTypes.flatMap(key => body[key] instanceof File && body[key].size ? [{ key, file: body[key] as File }] : []);
+    if (files.reduce((size, item) => size + item.file.size, 0) > 4 * 1024 * 1024) return NextResponse.json({ error: "Keep combined uploads below 4MB. Compress scans before submitting." }, { status: 413 });
+    const requiredDocuments = ["photo", "aadhaar", "tenthMarksheet"];
+    if (["12th", "Graduate", "Postgraduate"].includes(value.qualification)) requiredDocuments.push("twelfthMarksheet");
+    if (["Graduate", "Postgraduate"].includes(value.qualification)) requiredDocuments.push("gradMarksheet");
+    for (const required of requiredDocuments) {
+      if (!files.some(f => f.key === required)) return NextResponse.json({ error: `Upload ${required} for the selected qualification.` }, { status: 400 });
     }
-
-    const [course] = await db
-      .select()
-      .from(courses)
-      .where(eq(courses.id, courseId));
-
-    if (!course || !course.enabled) {
-      return NextResponse.json(
-        { error: "Selected course is not available." },
-        { status: 400 },
-      );
+    for (const { key, file } of files) await validateUpload(file, key === "photo");
+    await requirePrivateBucket();
+    const applicationId = generateApplicationId();
+    const docs: (typeof documents.$inferInsert)[] = [];
+    for (const { key, file } of files) {
+      const path = await uploadPrivateFile(`applications/${applicationId}`, file, key === "photo");
+      uploaded.push(path);
+      docs.push({ applicationId, docType: key, fileName: file.name.slice(0, 500), filePath: path, fileSize: file.size });
     }
-
-    const applicationId =
-      asString(body.applicationId) || generateApplicationId();
-
-    const [application] = await db
-      .insert(applications)
-      .values({
-        applicationId,
-        courseId,
-        universityId:
-          universityId && Number.isInteger(universityId)
-            ? universityId
-            : null,
-        studyMode: asString(body.studyMode) || null,
-        firstName: asString(body.firstName),
-        lastName: asString(body.lastName),
-        fatherName: asString(body.fatherName),
-        motherName: asString(body.motherName),
-        dob: asString(body.dob),
-        gender: asString(body.gender),
-        mobile: asString(body.mobile),
-        email: asString(body.email),
-        address: asString(body.address),
-        city: asString(body.city),
-        state: asString(body.state),
-        pinCode: asString(body.pinCode),
-        tenthBoard: asString(body.tenthBoard) || null,
-        tenthYear: asString(body.tenthYear) || null,
-        tenthPercentage: asString(body.tenthPercentage) || null,
-        twelfthBoard: asString(body.twelfthBoard) || null,
-        twelfthYear: asString(body.twelfthYear) || null,
-        twelfthPercentage:
-          asString(body.twelfthPercentage) || null,
-        gradUniversity:
-          asString(body.gradUniversity) || null,
-        gradYear: asString(body.gradYear) || null,
-        gradPercentage:
-          asString(body.gradPercentage) || null,
-        declaration: true,
-        status: "pending",
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        applicationId,
-        application,
-      },
-      { status: 201 },
-    );
+    await db.transaction(async tx => {
+      const [application] = await tx.insert(applications).values({ ...value, applicationId, status: "pending", applicationStatus: "RECEIVED", documentStatus: "PENDING", verificationStatus: "PENDING" }).returning({ id: applications.id });
+      await tx.insert(documents).values(docs);
+      await tx.insert(applicationStatusHistory).values({ applicationId: application.id, newStatus: "RECEIVED", notes: "Application submitted" });
+    });
+    const response = NextResponse.json({ success: true, applicationId, status: "pending" }, { status: 201 });
+    response.cookies.set("application_upload", jwt.sign({ applicationId }, process.env.JWT_SECRET, { algorithm: "HS256", audience: "aiit-application-upload", issuer: "aiit", expiresIn: "2h" }), {
+      httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 7200, path: "/api/applications",
+    });
+    return response;
   } catch (error) {
-    console.error("Error creating application:", error);
-
-    return NextResponse.json(
-      { error: "Failed to create application" },
-      { status: 500 },
-    );
+    if (uploaded.length) {
+      const { error: cleanupError } = await supabase.storage.from("documents").remove(uploaded);
+      if (cleanupError) console.error("Admission upload cleanup requires review.");
+    }
+    if (error instanceof SyntaxError || error instanceof TypeError) return NextResponse.json({ error: "Invalid submission." }, { status: 400 });
+    console.error("Application submission failed.");
+    return NextResponse.json({ error: "Unable to submit. Please retry or contact AIIT; retain your documents." }, { status: 503 });
   }
 }
-
 export const dynamic = "force-dynamic";

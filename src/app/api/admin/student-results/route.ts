@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { studentResults, students } from "@/db/schema";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const rows = await db.select({ result: studentResults, student: { studentId: students.studentId, firstName: students.firstName, lastName: students.lastName } })
       .from(studentResults).leftJoin(students, eq(studentResults.studentId, students.id)).orderBy(desc(studentResults.createdAt));
@@ -15,6 +17,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
     const studentId = Number(body.studentId);
@@ -45,6 +48,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!Number.isInteger(id) || id < 1) return NextResponse.json({ error: "Valid result ID required." }, { status: 400 });

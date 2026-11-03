@@ -11,7 +11,7 @@ type Row = {
   mobile: string;
   email: string;
   vacancyTitle: string | null;
-  resumePath: string | null;
+  hasResume: boolean;
   status: string;
   createdAt: string;
 };
@@ -116,7 +116,7 @@ export default function VacancyApplicationsPage() {
                     <td className="px-4 py-3">{row.vacancyTitle || "Vacancy unavailable"}</td>
                     <td className="px-4 py-3 text-muted">{row.mobile}<span className="block break-all">{row.email}</span></td>
                     <td className="whitespace-nowrap px-4 py-3 text-muted">{new Date(row.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                    <td className="px-4 py-3">{row.resumePath ? "Attached" : "Not attached"}</td>
+                    <td className="px-4 py-3">{row.hasResume ? "Attached" : "Not attached"}</td>
                     <td className="px-4 py-3 capitalize">{row.status}</td>
                     <td className="px-4 py-3">
                       <Link href={"/admin/dashboard/vacancy-applications/" + encodeURIComponent(row.applicationId)}

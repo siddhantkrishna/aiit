@@ -1,8 +1,9 @@
+import { publicCourse } from "@/lib/catalogue";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { db } from "@/db";
 import { courses } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, ilike, or } from "drizzle-orm";
 import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import { SITE } from "@/lib/seo";
@@ -17,15 +18,16 @@ const categoryColors: Record<string, string> = {
   Professional: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
-export default async function CoursesPage() {
+export default async function CoursesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const query = ((await searchParams).q || "").trim().slice(0, 100);
   let allCourses: (typeof courses.$inferSelect)[] = [];
   try {
-    allCourses = await db.select().from(courses).where(eq(courses.enabled, true));
+    allCourses = await db.select().from(courses).where(and(publicCourse, query ? or(ilike(courses.name, `%${query}%`), ilike(courses.fullName, `%${query}%`)) : undefined));
   } catch {
     allCourses = [];
   }
 
-  const categories = [...new Set(allCourses.map((c) => c.category).filter(Boolean))];
+  const categories = [...new Set(allCourses.map(c => c.category || "Other"))];
 
   return (
     <>
@@ -45,6 +47,7 @@ export default async function CoursesPage() {
         {/* Courses Grid */}
         <section className="py-12 md:py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <form className="mb-8 flex gap-3" action="/courses"><input aria-label="Search courses" name="q" defaultValue={query} placeholder="Search courses / पाठ्यक्रम खोजें" className="w-full border rounded-lg p-3" /><button className="bg-primary text-white rounded-lg px-5">Search</button></form>
             {allCourses.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-2xl">📚</p>
@@ -62,12 +65,12 @@ export default async function CoursesPage() {
                       {category}
                     </span>
                     <span className="text-muted text-sm font-normal">
-                      ({allCourses.filter((c) => c.category === category).length} courses)
+                      ({allCourses.filter((c) => (c.category || "Other") === category).length} courses)
                     </span>
                   </h2>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {allCourses
-                      .filter((c) => c.category === category)
+                      .filter((c) => (c.category || "Other") === category)
                       .map((course) => (
                         <div
                           key={course.id}

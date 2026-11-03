@@ -6,7 +6,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.cjs",
+    "test:integration": "node scripts/test-integration.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",

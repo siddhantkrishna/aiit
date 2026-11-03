@@ -1,64 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { applications, courses } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { z } from "zod";
+import { date, mobile } from "@/lib/validation";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
+  return NextResponse.json({ error: "Use the verified status form." }, { status: 405, headers: { Allow: "POST" } });
+}
+export async function POST(req: NextRequest) {
   try {
-    const searchParams = req.nextUrl.searchParams;
-    const applicationId = searchParams.get("applicationId");
-    const mobile = searchParams.get("mobile");
-
-    if (!applicationId && !mobile) {
-      return NextResponse.json(
-        { error: "Please provide applicationId or mobile" },
-        { status: 400 }
-      );
-    }
-
-    const conditions = [];
-    if (applicationId) {
-      conditions.push(eq(applications.applicationId, applicationId));
-    }
-    if (mobile) {
-      conditions.push(eq(applications.mobile, mobile));
-    }
-
-    const results = await db
-      .select()
-      .from(applications)
-      .where(or(...conditions));
-
-    if (results.length === 0) {
-      return NextResponse.json(
-        { error: "No application found" },
-        { status: 404 }
-      );
-    }
-
-    // Get course names for results
-    const enriched = await Promise.all(
-      results.map(async (app) => {
-        const course = await db
-          .select()
-          .from(courses)
-          .where(eq(courses.id, app.courseId));
-        return {
-          applicationId: app.applicationId,
-          name: `${app.firstName} ${app.lastName || ""}`.trim(),
-          course: course[0]?.name || "N/A",
-          status: app.status,
-          submittedAt: app.createdAt,
-          updatedAt: app.updatedAt,
-        };
-      })
-    );
-
-    return NextResponse.json(enriched);
-  } catch (error) {
-    console.error("Error checking status:", error);
-    return NextResponse.json({ error: "Failed to check status" }, { status: 500 });
+    const parsed = z.object({ applicationId: z.string().trim().min(1).max(50), mobile, dob: date }).safeParse(await req.json());
+    if (!parsed.success) return NextResponse.json({ error: "Enter application number, registered mobile and date of birth." }, { status: 400 });
+    const value = parsed.data;
+    const rows = await db.select({ applicationId: applications.applicationId, course: courses.name, status: applications.status, applicationStatus: applications.applicationStatus, nextAction: applications.nextAction, submittedAt: applications.createdAt, updatedAt: applications.updatedAt })
+      .from(applications).leftJoin(courses, eq(courses.id, applications.courseId))
+      .where(and(eq(applications.applicationId, value.applicationId), eq(applications.mobile, value.mobile), eq(applications.dob, value.dob)));
+    if (!rows.length) return NextResponse.json({ error: "Application details could not be verified." }, { status: 404 });
+    return NextResponse.json(rows, { headers: { "Cache-Control": "private, no-store" } });
+  } catch {
+    return NextResponse.json({ error: "Unable to check status." }, { status: 400 });
   }
 }
-
 export const dynamic = "force-dynamic";

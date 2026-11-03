@@ -1,9 +1,14 @@
+import { randomUUID } from "node:crypto";
+import { accountingSchema, id } from "@/lib/validation";
+import { invalidReference } from "@/lib/record-validation";
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { accountingTransactions } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
 
@@ -63,7 +68,7 @@ export async function GET(req: NextRequest) {
       .from(accountingTransactions)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(
@@ -88,131 +93,27 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { return save(req, false); }
+export async function PUT(req: NextRequest) { return save(req, true); }
+
+async function save(req: NextRequest, updating: boolean) {
+  const admin = requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
-
-    const amount = Number(body.amount);
-
-    if (!amount || amount <= 0) {
-      return NextResponse.json(
-        {
-          error: "A valid amount is required.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const transactionCode =
-      String(
-        body.transactionCode || "",
-      ).trim() ||
-      `TXN-${Date.now().toString().slice(-8)}`;
-
-    const transactionType = String(
-      body.transactionType || "",
-    ).trim();
-
-    const category = String(
-      body.category || "",
-    ).trim();
-
-    if (!transactionType || !category) {
-      return NextResponse.json(
-        {
-          error:
-            "Transaction type and category are required.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const [transaction] = await db
-      .insert(accountingTransactions)
-      .values({
-        transactionCode,
-
-        transactionDate:
-          body.transactionDate ||
-          new Date().toISOString().slice(0, 10),
-
-        centreId: body.centreId
-          ? Number(body.centreId)
-          : null,
-
-        transactionType,
-
-        category,
-
-        description:
-          String(
-            body.description || "",
-          ).trim() || null,
-
-        amount: String(amount),
-
-        paymentMode:
-          String(
-            body.paymentMode || "",
-          ).trim() || null,
-
-        referenceNumber:
-          String(
-            body.referenceNumber || "",
-          ).trim() || null,
-
-        relatedStudentId:
-          body.relatedStudentId
-            ? Number(body.relatedStudentId)
-            : null,
-
-        relatedPaymentId:
-          body.relatedPaymentId
-            ? Number(body.relatedPaymentId)
-            : null,
-
-        relatedExpenseId:
-          body.relatedExpenseId
-            ? Number(body.relatedExpenseId)
-            : null,
-
-        recordedBy:
-          body.recordedBy
-            ? Number(body.recordedBy)
-            : null,
-
-        status:
-          String(body.status || "POSTED"),
-
-        notes:
-          String(body.notes || "").trim() ||
-          null,
-
-        updatedAt: new Date(),
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        transaction,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error(
-      "Failed to create accounting transaction:",
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "Failed to create accounting transaction.",
-      },
-      { status: 500 },
-    );
-  }
+    if (updating && !id.safeParse(body.id).success) return NextResponse.json({ error: "Valid record ID required." }, { status: 400 });
+    const [existing] = updating ? await db.select().from(accountingTransactions).where(eq(accountingTransactions.id, Number(body.id))) : [];
+    if (updating && !existing) return NextResponse.json({ error: "Record not found." }, { status: 404 });
+    if (existing?.relatedPaymentId) return NextResponse.json({ error: "Use payment verification to change payment-linked entries." }, { status: 409 });
+    const parsed = accountingSchema.safeParse({ ...existing, ...body });
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const referenceError = await invalidReference(parsed.data);
+    if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+    const values = { ...parsed.data, updatedAt: new Date(), recordedBy: admin.id };
+    const [record] = updating
+      ? await db.update(accountingTransactions).set(values).where(eq(accountingTransactions.id, Number(body.id))).returning()
+      : await db.insert(accountingTransactions).values({ ...values, transactionCode: `TXN-${randomUUID()}` }).returning();
+    return NextResponse.json({ success: true, transaction: record }, { status: updating ? 200 : 201 });
+  } catch { return NextResponse.json({ error: "Unable to save accounting." }, { status: 400 }); }
 }
-
 export const dynamic = "force-dynamic";

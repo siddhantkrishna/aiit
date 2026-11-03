@@ -1,3 +1,4 @@
+import { publicUniversity } from "@/lib/catalogue";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { db } from "@/db";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function UniversitiesPage() {
   let allUniversities: (typeof universities.$inferSelect)[] = [];
   try {
-    allUniversities = await db.select().from(universities).where(eq(universities.enabled, true));
+    allUniversities = await db.select().from(universities).where(publicUniversity);
   } catch {
     allUniversities = [];
   }
@@ -24,8 +25,7 @@ export default async function UniversitiesPage() {
               Partner Universities
             </h1>
             <p className="text-lg text-blue-200 max-w-2xl mx-auto">
-              AIIT College is affiliated with reputed universities recognized by
-              UGC and other regulatory bodies.
+              Verified university relationships and study options. Please contact AIIT for current admission details.
             </p>
           </div>
         </section>

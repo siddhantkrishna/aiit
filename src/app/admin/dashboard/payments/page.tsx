@@ -1,4 +1,5 @@
 "use client";
+import OperationsForm from "@/components/OperationsForm";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -52,6 +53,13 @@ export default function PaymentsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
 
+  async function verifyPayment(id: number, paymentStatus: string) {
+    if (!window.confirm(`Mark payment ${paymentStatus.toLowerCase()}? Verify the bank or cash record first.`)) return;
+    try {
+      const response = await fetch("/api/admin/payments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, paymentStatus }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error); await loadPayments();
+    } catch (error) { setError(error instanceof Error ? error.message : "Unable to update payment."); }
+  }
   async function loadPayments() {
     try {
       setLoading(true);
@@ -124,6 +132,17 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
+      <OperationsForm endpoint="/api/admin/payments" onSaved={loadPayments} title="Record payment (pending verification)" fields={[
+        {key: "studentId", label: "Student", source: "students"},
+        {key: "applicationId", label: "Application (registration)", source: "applications"},
+        {key: "centreId", label: "Centre", source: "centres", required: true},
+        {key: "paymentDate", label: "Date", type: "date", required: true},
+        {key: "paymentType", label: "Payment type", options: ["REGISTRATION", "TUITION", "EXAM", "OTHER"], required: true},
+        {key: "amount", label: "Amount (INR)", type: "number", required: true},
+        {key: "paymentMode", label: "Payment mode", options: ["CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "CARD", "OTHER"], required: true},
+        {key: "referenceNumber", label: "Transaction reference"},
+        {key: "notes", label: "Notes", type: "textarea"},
+      ]} />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
@@ -293,6 +312,10 @@ export default function PaymentsPage() {
                         >
                           {paymentStatus}
                         </span>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                          <a href={`/api/admin/payments/${payment.id}/proof`} target="_blank" rel="noreferrer" className="text-blue-600 underline">View proof</a>
+                          {paymentStatus === "VERIFIED" ? <><a href={`/api/admin/payments/${payment.id}/receipt`} className="text-blue-600 underline">PDF receipt</a><button onClick={() => verifyPayment(payment.id, "REFUNDED")} className="text-red-700 underline">Mark refunded</button></> : paymentStatus !== "REFUNDED" && <><button onClick={() => verifyPayment(payment.id, "VERIFIED")} className="text-green-700 underline">Verify</button><button onClick={() => verifyPayment(payment.id, "REJECTED")} className="text-red-700 underline">Reject</button></>}
+                        </div>
                       </td>
                     </tr>
                   );

@@ -1,25 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireAdmin } from "@/lib/admin-auth";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { vacancyApplications, vacancies } from "@/db/schema";
 
-const JWT_SECRET = process.env.JWT_SECRET;
 const VALID_STATUSES = ["pending", "reviewed", "shortlisted", "rejected", "hired"];
 
-function authorized(req: NextRequest) {
-  const token = req.cookies.get("admin_token")?.value;
-  if (!token || !JWT_SECRET) return false;
-  try {
-    jwt.verify(token, JWT_SECRET);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const rows = await db
@@ -38,7 +26,7 @@ export async function GET(req: NextRequest) {
       .from(vacancyApplications)
       .leftJoin(vacancies, eq(vacancyApplications.vacancyId, vacancies.id))
       .orderBy(desc(vacancyApplications.createdAt));
-    return NextResponse.json(rows, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(rows.map(({ resumePath, ...row }) => ({ ...row, hasResume: !!resumePath })), { headers: { "Cache-Control": "no-store" } });
   } catch {
     console.error("Failed to load vacancy applications.");
     return NextResponse.json({ error: "Failed to load vacancy applications." }, { status: 500 });
@@ -46,7 +34,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const body = await req.json();
@@ -61,7 +49,8 @@ export async function PUT(req: NextRequest) {
       .where(eq(vacancyApplications.applicationId, id))
       .returning();
     if (!result[0]) return NextResponse.json({ error: "Application not found." }, { status: 404 });
-    return NextResponse.json({ application: result[0] });
+    const { resumePath, ...application } = result[0];
+    return NextResponse.json({ application: { ...application, hasResume: !!resumePath } });
   } catch {
     console.error("Failed to update vacancy application status.");
     return NextResponse.json({ error: "Could not update the application." }, { status: 500 });

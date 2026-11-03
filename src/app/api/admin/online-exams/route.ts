@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -15,12 +16,14 @@ function parseQuestions(value: unknown) {
   });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try { return NextResponse.json(await db.select().from(onlineExams).orderBy(desc(onlineExams.createdAt))); }
   catch (error) { console.error(error); return NextResponse.json({ error: "Failed to load exams." }, { status: 500 }); }
 }
 
 export async function POST(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json(); const title=text(body.title); const examCode=text(body.examCode).toUpperCase();
     if(!title||!examCode) return NextResponse.json({error:"Exam title and code are required."},{status:400});
@@ -35,6 +38,6 @@ export async function POST(req: NextRequest) {
   } catch(error){console.error(error);return NextResponse.json({error:error instanceof Error?error.message:'Failed to create exam.'},{status:500});}
 }
 
-export async function DELETE(req: NextRequest){try{const id=Number(req.nextUrl.searchParams.get('id'));if(!id)return NextResponse.json({error:'Valid exam ID required.'},{status:400});await db.delete(onlineExams).where(eq(onlineExams.id,id));return NextResponse.json({success:true})}catch(error){console.error(error);return NextResponse.json({error:'Failed to delete exam.'},{status:500})}}
+export async function DELETE(req: NextRequest){if(!requireAdmin(req))return NextResponse.json({error:"Unauthorized"},{status:401});try{const id=Number(req.nextUrl.searchParams.get('id'));if(!id)return NextResponse.json({error:'Valid exam ID required.'},{status:400});await db.delete(onlineExams).where(eq(onlineExams.id,id));return NextResponse.json({success:true})}catch(error){console.error(error);return NextResponse.json({error:'Failed to delete exam.'},{status:500})}}
 
 export const dynamic = "force-dynamic";

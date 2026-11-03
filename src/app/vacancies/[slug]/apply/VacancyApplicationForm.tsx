@@ -42,7 +42,7 @@ export default function VacancyApplicationForm({ vacancyId, title }: { vacancyId
           aria-describedby="vacancy-resume-hint"
           className="mt-2 block w-full min-w-0 cursor-pointer rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:border-0 file:bg-transparent file:font-medium file:text-foreground"
         />
-        <p id="vacancy-resume-hint" className="mt-1 text-xs text-muted">Attach a PDF, Word, TXT, RTF, ODT, PNG, JPG, JPEG or WEBP file (max 5MB), or submit without a resume.</p>
+        <p id="vacancy-resume-hint" className="mt-1 text-xs text-muted">Attach a PDF, Word, TXT, RTF, ODT, PNG, JPG, JPEG or WEBP file (max 3MB), or submit without a resume.</p>
       </div>
     </div>
     <label className="flex gap-3 text-sm text-muted"><input required type="checkbox" className="mt-1"/>I confirm that the information provided is accurate and complete.</label>

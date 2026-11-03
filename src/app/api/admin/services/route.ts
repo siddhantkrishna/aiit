@@ -1,9 +1,14 @@
+import { randomUUID } from "node:crypto";
+import { serviceSchema, id } from "@/lib/validation";
+import { invalidReference } from "@/lib/record-validation";
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { studentServices } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
 
@@ -46,7 +51,7 @@ export async function GET(req: NextRequest) {
       .from(studentServices)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(desc(studentServices.requestedAt));
@@ -65,96 +70,24 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { return save(req, false); }
+export async function PUT(req: NextRequest) { return save(req, true); }
+
+async function save(req: NextRequest, updating: boolean) {
+  const admin = requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
-
-    const studentId = Number(body.studentId);
-    const serviceType = String(
-      body.serviceType || "",
-    ).trim();
-
-    if (!studentId || !serviceType) {
-      return NextResponse.json(
-        {
-          error:
-            "Student ID and service type are required.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const [service] = await db
-      .insert(studentServices)
-      .values({
-        studentId,
-
-        serviceType,
-
-        status: String(
-          body.status || "PENDING",
-        ),
-
-        priority: String(
-          body.priority || "NORMAL",
-        ),
-
-        requestedAt: body.requestedAt
-          ? new Date(body.requestedAt)
-          : new Date(),
-
-        dueDate:
-          body.dueDate || null,
-
-        completedAt: body.completedAt
-          ? new Date(body.completedAt)
-          : null,
-
-        ownerId: body.ownerId
-          ? Number(body.ownerId)
-          : null,
-
-        assignedTo: body.assignedTo
-          ? Number(body.assignedTo)
-          : null,
-
-        requestedBy: body.requestedBy
-          ? Number(body.requestedBy)
-          : null,
-
-        referenceNumber:
-          String(
-            body.referenceNumber || "",
-          ).trim() || null,
-
-        notes:
-          String(body.notes || "").trim() || null,
-
-        remarks:
-          String(body.remarks || "").trim() || null,
-
-        updatedAt: new Date(),
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        service,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error(
-      "Failed to create student service:",
-      error,
-    );
-
-    return NextResponse.json(
-      { error: "Failed to create student service." },
-      { status: 500 },
-    );
-  }
+    if (updating && !id.safeParse(body.id).success) return NextResponse.json({ error: "Valid record ID required." }, { status: 400 });
+    const [existing] = updating ? await db.select().from(studentServices).where(eq(studentServices.id, Number(body.id))) : [];
+    if (updating && !existing) return NextResponse.json({ error: "Record not found." }, { status: 404 });
+    const parsed = serviceSchema.safeParse({ ...existing, ...body });
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const referenceError = await invalidReference(parsed.data);
+    if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+    const values = { ...parsed.data, updatedAt: new Date(), completedAt: parsed.data.status === "COMPLETED" ? existing?.completedAt || new Date() : null };
+    const [record] = updating ? await db.update(studentServices).set(values).where(eq(studentServices.id, Number(body.id))).returning() : await db.insert(studentServices).values(values).returning();
+    return NextResponse.json({ success: true, service: record }, { status: updating ? 200 : 201 });
+  } catch { return NextResponse.json({ error: "Unable to save services." }, { status: 400 }); }
 }
-
 export const dynamic = "force-dynamic";

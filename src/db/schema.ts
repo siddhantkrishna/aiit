@@ -50,7 +50,7 @@ export const universities = pgTable("universities", {
   enabled: boolean("enabled").default(true).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    COURSES
@@ -103,7 +103,7 @@ export const courses = pgTable("courses", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    CENTRES
@@ -133,7 +133,7 @@ export const centres = pgTable("centres", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    LEADS
@@ -182,7 +182,7 @@ export const leads = pgTable("leads", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    LEAD FOLLOW UPS
@@ -203,7 +203,7 @@ export const leadFollowUps = pgTable("lead_follow_ups", {
   createdBy: bigint("created_by", { mode: "number" }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    UNIVERSITY PROGRAMS
@@ -257,7 +257,7 @@ export const universityPrograms = pgTable("university_programs", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    APPLICATIONS
@@ -297,6 +297,8 @@ export const applications = pgTable("applications", {
   city: varchar("city", { length: 100 }).notNull(),
   state: varchar("state", { length: 100 }).notNull(),
   pinCode: varchar("pin_code", { length: 10 }).notNull(),
+
+  qualification: text("qualification"),
 
   tenthBoard: varchar("tenth_board", { length: 255 }),
   tenthYear: varchar("tenth_year", { length: 10 }),
@@ -354,7 +356,7 @@ export const applications = pgTable("applications", {
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    APPLICATION STATUS HISTORY
@@ -380,7 +382,7 @@ export const applicationStatusHistory = pgTable(
 
     notes: text("notes"),
   },
-);
+).enableRLS();
 
 /* =========================================================
    DOCUMENTS
@@ -408,7 +410,7 @@ export const documents = pgTable("documents", {
   createdAt: timestamp("created_at")
     .defaultNow()
     .notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    STUDENTS
@@ -418,6 +420,15 @@ export const students = pgTable("students", {
   id: bigint("id", { mode: "number" })
     .generatedAlwaysAsIdentity()
     .primaryKey(),
+
+  accessCodeHash: text("access_code_hash"),
+  fatherName: varchar("father_name", { length: 255 }),
+  motherName: varchar("mother_name", { length: 255 }),
+  universityStatus: varchar("university_status", { length: 50 }).default("PENDING"),
+  universitySubmittedAt: date("university_submitted_at"),
+  universityNextAction: text("university_next_action"),
+  requiredDocuments: text("required_documents"),
+  admitCardPath: text("admit_card_path"),
 
   studentId: varchar("student_id", { length: 100 })
     .notNull()
@@ -508,7 +519,7 @@ export const students = pgTable("students", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    STUDENT DOCUMENTS
@@ -574,7 +585,7 @@ export const studentDocuments = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    PAYMENTS
@@ -640,7 +651,7 @@ export const payments = pgTable("payments", {
   createdAt: timestamp("created_at")
     .defaultNow()
     .notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    STUDENT SERVICES
@@ -703,7 +714,7 @@ export const studentServices = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    STAFF
@@ -713,6 +724,8 @@ export const staff = pgTable("staff", {
   id: bigint("id", { mode: "number" })
     .generatedAlwaysAsIdentity()
     .primaryKey(),
+
+  responsibilities: text("responsibilities"),
 
   employeeId: varchar("employee_id", {
     length: 100,
@@ -753,7 +766,7 @@ export const staff = pgTable("staff", {
     .notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    STAFF TASKS
@@ -809,7 +822,7 @@ export const staffTasks = pgTable("staff_tasks", {
     .notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    STAFF ATTENDANCE
@@ -846,7 +859,7 @@ export const staffAttendance = pgTable(
       .defaultNow()
       .notNull(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    STAFF ROLES
@@ -890,7 +903,7 @@ export const staffRoles = pgTable("staff_roles", {
     .notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    STAFF SOPs
@@ -941,7 +954,7 @@ export const staffSops = pgTable("staff_sops", {
     .notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    TRAINING PROGRAMS
@@ -1000,7 +1013,7 @@ export const staffTrainingPrograms = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    TRAINING RECORDS
@@ -1046,7 +1059,7 @@ export const staffTrainingRecords = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    PERFORMANCE REVIEWS
@@ -1092,7 +1105,7 @@ export const performanceReviews = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    INCENTIVE RULES
@@ -1157,7 +1170,7 @@ export const incentiveRules = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    STAFF INCENTIVES
@@ -1215,7 +1228,7 @@ export const staffIncentives = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    MARKETING CAMPAIGNS
@@ -1277,7 +1290,7 @@ export const marketingCampaigns = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    MARKETING ACTIVITIES
@@ -1327,7 +1340,7 @@ export const marketingActivities = pgTable(
       .defaultNow()
       .notNull(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    SALES TARGETS
@@ -1374,7 +1387,7 @@ export const salesTargets = pgTable("sales_targets", {
     .notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    ACCOUNTING TRANSACTIONS
@@ -1455,7 +1468,7 @@ export const accountingTransactions = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    EXPENSES
@@ -1498,7 +1511,7 @@ export const expenses = pgTable("expenses", {
     .notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 /* =========================================================
    FINANCIAL CONTROLS
@@ -1557,7 +1570,7 @@ export const financialControls = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    FINANCIAL CONTROL LOGS
@@ -1609,7 +1622,7 @@ export const financialControlLogs = pgTable(
 
     notes: text("notes"),
   },
-);
+).enableRLS();
 
 /* =========================================================
    JOB OPENINGS
@@ -1673,7 +1686,7 @@ export const jobOpenings = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    JOB APPLICANTS
@@ -1745,7 +1758,7 @@ export const jobApplicants = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    REPLICATION TEMPLATES
@@ -1793,7 +1806,7 @@ export const replicationTemplates = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    REPLICATION INSTANCES
@@ -1844,7 +1857,7 @@ export const replicationInstances = pgTable(
 
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    VACANCIES
@@ -1903,7 +1916,7 @@ export const vacancies = pgTable("vacancies", {
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    VACANCY APPLICATIONS
@@ -1974,7 +1987,7 @@ export const vacancyApplications = pgTable(
       .defaultNow()
       .notNull(),
   },
-);
+).enableRLS();
 
 /* =========================================================
    ADMIN
@@ -1998,7 +2011,7 @@ export const admin = pgTable("admin", {
   createdAt: timestamp("created_at")
     .defaultNow()
     .notNull(),
-});
+}).enableRLS();
 /* =========================================================
    ONLINE CLASSES
 ========================================================= */
@@ -2026,7 +2039,7 @@ export const onlineClasses = pgTable("online_classes", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    ONLINE EXAMS
@@ -2057,7 +2070,7 @@ export const onlineExams = pgTable("online_exams", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    ONLINE EXAM ATTEMPTS
@@ -2083,7 +2096,7 @@ export const onlineExamAttempts = pgTable("online_exam_attempts", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 /* =========================================================
    STUDENT RESULTS
@@ -2111,4 +2124,11 @@ export const studentResults = pgTable("student_results", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
+
+// Shared across Vercel instances; no client policy is granted.
+export const apiRateLimits = pgTable("api_rate_limits", {
+  key: text("key").primaryKey(),
+  attempts: integer("attempts").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}).enableRLS();

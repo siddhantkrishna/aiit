@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { marketingCampaigns } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
 
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
       .from(marketingCampaigns)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
 

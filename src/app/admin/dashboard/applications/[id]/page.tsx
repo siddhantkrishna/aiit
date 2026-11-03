@@ -1,4 +1,5 @@
 "use client";
+import DocumentUpload from "@/components/DocumentUpload";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ type Application = {
   city: string;
   state: string;
   pinCode: string;
+  qualification: string | null;
   tenthBoard: string;
   tenthYear: string;
   tenthPercentage: string;
@@ -55,6 +57,7 @@ type Document = {
 type ApplicationResponse = {
   application: Application;
   documents: Document[];
+  history: { id: number; oldStatus: string | null; newStatus: string; changedAt: string; changedBy: number | null; notes: string | null }[];
 };
 
 const statuses = [
@@ -103,6 +106,7 @@ export default function ApplicationDetailPage() {
   const rawId = params.id;
   const applicationId = Array.isArray(rawId) ? rawId[0] : rawId;
 
+  const [review, setReview] = useState({ applicationStatus: "RECEIVED", documentStatus: "PENDING", verificationStatus: "PENDING", nextAction: "", dueDate: "", remarks: "" });
   const [data, setData] = useState<ApplicationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,6 +131,7 @@ export default function ApplicationDetailPage() {
       const result = await response.json();
 
       setData(result);
+      setReview({ applicationStatus: result.application.applicationStatus || "RECEIVED", documentStatus: result.application.documentStatus || "PENDING", verificationStatus: result.application.verificationStatus || "PENDING", nextAction: result.application.nextAction || "", dueDate: result.application.dueDate || "", remarks: result.application.remarks || "" });
     } catch (err) {
       console.error(err);
       setData(null);
@@ -145,13 +150,6 @@ export default function ApplicationDetailPage() {
   async function updateStatus(newStatus: string) {
     if (!data || saving) return;
 
-    const currentStatus =
-      data.application.applicationStatus ||
-      data.application.status ||
-      "RECEIVED";
-
-    if (currentStatus === newStatus) return;
-
     const confirmed = window.confirm(
       `Change application status to "${formatStatus(newStatus)}"?`,
     );
@@ -169,19 +167,20 @@ export default function ApplicationDetailPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            applicationStatus: newStatus,
+            ...review, applicationStatus: newStatus,
           }),
         },
       );
 
       if (!response.ok) {
-        throw new Error("Failed to update");
+        const result = await response.json();
+        throw new Error(result.error || "Failed to update");
       }
 
       await loadApplication();
     } catch (err) {
       console.error(err);
-      window.alert("Failed to update application status.");
+      window.alert(err instanceof Error ? err.message : "Failed to update application status.");
     } finally {
       setSaving(false);
     }
@@ -277,6 +276,20 @@ export default function ApplicationDetailPage() {
         </div>
       </div>
 
+      <form onSubmit={e => { e.preventDefault(); updateStatus(review.applicationStatus); }} className="bg-white rounded-2xl border p-6 grid gap-4 sm:grid-cols-2">
+        <h2 className="sm:col-span-2 text-lg font-bold">Verification & missing documents</h2>
+        <label className="text-sm">Application status<select aria-label="Application status" value={review.applicationStatus} onChange={e => setReview({ ...review, applicationStatus: e.target.value })} className="mt-1 w-full border rounded p-2">{statuses.map(s => <option key={s}>{s}</option>)}</select></label>
+        {["documentStatus", "verificationStatus"].map(key => <label key={key} className="text-sm">{key === "documentStatus" ? "Document verification" : "Applicant verification"}<select aria-label={key} value={review[key as "documentStatus" | "verificationStatus"]} onChange={e => setReview({ ...review, [key]: e.target.value })} className="mt-1 w-full border rounded p-2">{["PENDING", "VERIFIED", "REJECTED"].map(v => <option key={v}>{v}</option>)}</select></label>)}
+        <label className="text-sm">Due date<input aria-label="Due date" type="date" value={review.dueDate} onChange={e => setReview({ ...review, dueDate: e.target.value })} className="mt-1 w-full border rounded p-2" /></label>
+        <label className="text-sm">Next action / missing documents (visible in verified status lookup)<textarea aria-label="Next action" value={review.nextAction} onChange={e => setReview({ ...review, nextAction: e.target.value })} maxLength={2000} className="mt-1 w-full border rounded p-2" /></label>
+        <label className="text-sm">Internal remarks<textarea aria-label="Internal remarks" value={review.remarks} onChange={e => setReview({ ...review, remarks: e.target.value })} maxLength={4000} className="mt-1 w-full border rounded p-2" /></label>
+        <button disabled={saving} className="rounded-lg bg-blue-600 text-white p-3 disabled:opacity-50">Save review</button>
+      </form>
+      <section className="bg-white rounded-2xl border p-6">
+        <h2 className="text-lg font-bold">Review history</h2>
+        <ul className="mt-4 space-y-3">{data.history.map(h => <li key={h.id} className="border-b pb-3 text-sm"><strong>{h.oldStatus || "Submitted"} → {h.newStatus}</strong><p>{new Date(h.changedAt).toLocaleString("en-IN")} {h.changedBy ? `· Admin #${h.changedBy}` : ""}</p><p className="whitespace-pre-wrap">{h.notes}</p></li>)}</ul>
+      </section>
+
       <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-bold text-slate-900">
           Applicant Details
@@ -337,6 +350,7 @@ export default function ApplicationDetailPage() {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-6">
+          <Info label="Highest qualification">{app.qualification || "—"}</Info>
           <Info label="10th Board">
             {app.tenthBoard || "—"}
           </Info>
@@ -427,6 +441,8 @@ export default function ApplicationDetailPage() {
         <h2 className="text-lg font-bold text-slate-900">
           Documents
         </h2>
+        <p className="mt-2 text-xs">Links expire in two minutes. Reload for fresh links.</p>
+        <DocumentUpload endpoint={`/api/applications/${applicationId}/documents`} types={["photo", "aadhaar", "tenthMarksheet", "twelfthMarksheet", "gradMarksheet", "otherDoc"]} onUploaded={loadApplication} />
 
         {data.documents.length === 0 ? (
           <p className="text-sm text-slate-500 mt-5">

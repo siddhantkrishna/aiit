@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
+import { leadSchema } from "@/lib/validation";
+import { invalidReference } from "@/lib/record-validation";
+import { randomUUID } from "node:crypto";
 import { leads } from "@/db/schema";
 
 function clean(value: unknown, max = 500) {
@@ -10,14 +13,18 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const name = clean(body.name, 120);
-    const mobile = clean(body.mobile, 15).replace(/\D/g, "").slice(0, 10);
+    const mobile = clean(body.mobile, 15);
 
     if (!name || mobile.length !== 10) {
       return NextResponse.json({ error: "Please enter a valid name and 10-digit mobile number." }, { status: 400 });
     }
 
+    const parsed = leadSchema.safeParse({ ...body, nextFollowUpAt: null, assignedTo: null, status: "NEW", priority: "NORMAL" });
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const error = await invalidReference({ interestedCourseId: parsed.data.interestedCourseId, preferredUniversityId: parsed.data.preferredUniversityId });
+    if (error) return NextResponse.json({ error }, { status: 400 });
     const branch = clean(body.branch, 50).toUpperCase();
-    const leadId = `ENQ-${Date.now().toString().slice(-8)}`;
+    const leadId = `ENQ-${randomUUID()}`;
     const [lead] = await db.insert(leads).values({
       leadId,
       name,
