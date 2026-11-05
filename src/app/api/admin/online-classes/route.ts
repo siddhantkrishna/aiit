@@ -7,6 +7,15 @@ function text(value: unknown) {
   return String(value ?? "").trim();
 }
 
+function validWebUrl(value: string) {
+  if (!value) return true;
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const search = text(req.nextUrl.searchParams.get("search"));
@@ -35,12 +44,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const title = text(body.title);
     const scheduledAt = text(body.scheduledAt);
+    const meetingUrl = text(body.meetingUrl);
+    const recordingUrl = text(body.recordingUrl);
+    const durationMinutes = Number(body.durationMinutes ?? 60);
 
     if (!title || !scheduledAt) {
       return NextResponse.json({ error: "Class title and schedule are required." }, { status: 400 });
     }
 
     const when = new Date(scheduledAt);
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 600) {
+      return NextResponse.json({ error: "Duration must be between 1 and 600 minutes." }, { status: 400 });
+    }
+    if (!validWebUrl(meetingUrl) || !validWebUrl(recordingUrl)) {
+      return NextResponse.json({ error: "Meeting and recording links must be valid HTTP(S) URLs." }, { status: 400 });
+    }
     if (Number.isNaN(when.getTime())) {
       return NextResponse.json({ error: "Invalid class date/time." }, { status: 400 });
     }
@@ -53,9 +71,9 @@ export async function POST(req: NextRequest) {
         instructor: text(body.instructor) || null,
         courseId: body.courseId ? Number(body.courseId) : null,
         scheduledAt: when,
-        durationMinutes: body.durationMinutes ? Math.max(1, Number(body.durationMinutes)) : 60,
-        meetingUrl: text(body.meetingUrl) || null,
-        recordingUrl: text(body.recordingUrl) || null,
+        durationMinutes,
+        meetingUrl: meetingUrl || null,
+        recordingUrl: recordingUrl || null,
         status: text(body.status) || "SCHEDULED",
         enabled: body.enabled !== false,
         updatedAt: new Date(),
@@ -82,7 +100,16 @@ export async function PUT(req: NextRequest) {
       if (body[key] !== undefined) patch[key] = text(body[key]) || null;
     }
     if (body.courseId !== undefined) patch.courseId = body.courseId ? Number(body.courseId) : null;
-    if (body.durationMinutes !== undefined) patch.durationMinutes = Math.max(1, Number(body.durationMinutes));
+    if (body.durationMinutes !== undefined) {
+      const minutes = Number(body.durationMinutes);
+      if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) return NextResponse.json({ error: "Duration must be 1–600 minutes." }, { status: 400 });
+      patch.durationMinutes = minutes;
+    }
+    for (const key of ["meetingUrl", "recordingUrl"]) {
+      if (body[key] !== undefined && !validWebUrl(text(body[key]))) {
+        return NextResponse.json({ error: "Meeting and recording links must be valid HTTP(S) URLs." }, { status: 400 });
+      }
+    }
     if (body.scheduledAt !== undefined) {
       const when = new Date(text(body.scheduledAt));
       if (Number.isNaN(when.getTime())) return NextResponse.json({ error: "Invalid class date/time." }, { status: 400 });

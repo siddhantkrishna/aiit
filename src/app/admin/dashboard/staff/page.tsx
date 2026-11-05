@@ -45,6 +45,33 @@ export default function StaffPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [newRecord, setNewRecord] = useState({ name: "", role: "", department: "", mobile: "", email: "", joiningDate: "", status: "ACTIVE" });
+
+
+  async function createRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setCreateError("");
+    try {
+      const response = await fetch("/api/admin/staff", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(newRecord),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to create staff.");
+      setNewRecord({ name: "", role: "", department: "", mobile: "", email: "", joiningDate: "", status: "ACTIVE" });
+      setShowCreateForm(false);
+      await loadStaff();
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Unable to save record.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function loadStaff() {
     try {
@@ -52,10 +79,6 @@ export default function StaffPage() {
       setError("");
 
       const params = new URLSearchParams();
-
-      if (search.trim()) {
-        params.set("search", search.trim());
-      }
 
       if (status !== "ALL") {
         params.set("status", status);
@@ -125,13 +148,51 @@ export default function StaffPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadStaff}
-          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
-        >
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-expanded={showCreateForm} onClick={() => { setShowCreateForm(!showCreateForm); setCreateError(""); }}
+            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            {showCreateForm ? "Close form" : "Add Staff"}
+          </button>
+          <button type="button" onClick={loadStaff} className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Refresh</button>
+        </div>
       </div>
+
+      {showCreateForm && (
+        <form onSubmit={createRecord} className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Add Staff Member</h2>
+          <p className="mb-4 mt-1 text-sm text-slate-500">An employee ID is generated automatically. Add real employees here; demonstration records are labeled DEMO.</p>
+          {createError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</p>}
+          <div className="grid gap-4 md:grid-cols-2">
+            {([
+              ["name", "Full name", "text", true],
+              ["role", "Role", "text", false],
+              ["department", "Department", "text", false],
+              ["mobile", "Mobile number", "tel", false],
+              ["email", "Email address", "email", false],
+              ["joiningDate", "Joining date", "date", false],
+            ] as const).map(([key, label, type, required]) => (
+              <label key={key} className="block text-sm font-medium text-slate-700">
+                {label}
+                <input type={type} required={required} value={newRecord[key]}
+                  onChange={(e) => setNewRecord({ ...newRecord, [key]: e.target.value })}
+                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-600"
+                />
+              </label>
+            ))}
+            <label className="block text-sm font-medium text-slate-700">
+              Employment status
+              <select value={newRecord.status} onChange={(e) => setNewRecord({ ...newRecord, status: e.target.value })}
+                className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5">
+                {STATUS_OPTIONS.filter((item) => item !== "ALL").map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button type="submit" disabled={saving} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save Staff"}</button>
+            <button type="button" onClick={() => { setShowCreateForm(false); setCreateError(""); }} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700">Cancel</button>
+          </div>
+        </form>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-3">

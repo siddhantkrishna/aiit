@@ -25,7 +25,7 @@ export default function AdminOnlineClassesPage() {
     e.preventDefault();
     setSaving(true); setError("");
     try {
-      const response = await fetch("/api/admin/online-classes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
+      const response = await fetch("/api/admin/online-classes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, scheduledAt: new Date(form.scheduledAt).toISOString() }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to create class.");
       setForm(initialForm); await load();
@@ -44,7 +44,7 @@ export default function AdminOnlineClassesPage() {
     <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Digital Campus</p><h1 className="mt-2 text-3xl font-black text-slate-900">Online Classes</h1><p className="mt-2 text-sm text-slate-500">Publish live classes and recordings for students.</p></div>
     {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
     <form onSubmit={submit} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2">
-      {([['title','Class title'],['instructor','Instructor'],['scheduledAt','Schedule'],['durationMinutes','Duration (minutes)'],['meetingUrl','Live meeting URL'],['recordingUrl','Recording URL']] as const).map(([key,label]) => <label key={key} className={key==='title' ? 'md:col-span-2' : ''}><span className="mb-1.5 block text-sm font-semibold text-slate-700">{label}</span><input required={key==='title' || key==='scheduledAt'} type={key==='scheduledAt' ? 'datetime-local' : key==='durationMinutes' ? 'number' : 'text'} value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-primary" /></label>)}
+      {([['title','Class title'],['instructor','Instructor'],['scheduledAt','Schedule'],['durationMinutes','Duration (minutes)'],['meetingUrl','Live meeting URL'],['recordingUrl','Recording URL']] as const).map(([key,label]) => <label key={key} className={key==='title' ? 'md:col-span-2' : ''}><span className="mb-1.5 block text-sm font-semibold text-slate-700">{label}</span><input required={key==='title' || key==='scheduledAt'} type={key==='scheduledAt' ? 'datetime-local' : key==='durationMinutes' ? 'number' : key==='meetingUrl' || key==='recordingUrl' ? 'url' : 'text'} value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-primary" /></label>)}
       <label className="md:col-span-2"><span className="mb-1.5 block text-sm font-semibold text-slate-700">Description</span><textarea rows={3} value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-primary" /></label>
       <div className="md:col-span-2"><button disabled={saving} className="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-dark disabled:opacity-50">{saving ? 'Publishing…' : 'Publish class'}</button></div>
     </form>

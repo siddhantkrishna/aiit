@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { students } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
       .from(students)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(desc(students.createdAt));
@@ -53,10 +54,23 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const firstName = String(body.firstName || "").trim();
+    const mobile = String(body.mobile || "").replace(/\D/g, "");
+    const dob = String(body.dob || "").trim();
+    const validDob = /^\d{4}-\d{2}-\d{2}$/.test(dob) &&
+      !Number.isNaN(Date.parse(dob)) &&
+      new Date(dob).toISOString().slice(0, 10) === dob;
+
+    if (!firstName || mobile.length !== 10 || !validDob) {
+      return NextResponse.json(
+        { error: "First name, a 10-digit mobile number, and a valid date of birth are required." },
+        { status: 400 },
+      );
+    }
 
     const studentId =
       String(body.studentId || "").trim() ||
-      `STU-${Date.now().toString().slice(-8)}`;
+      `STU-${randomUUID().slice(0, 8).toUpperCase()}`;
 
     const [student] = await db
       .insert(students)
@@ -75,17 +89,15 @@ export async function POST(req: NextRequest) {
           ? Number(body.centreId)
           : null,
 
-        firstName:
-          String(body.firstName || "").trim() || null,
+        firstName,
 
         lastName:
           String(body.lastName || "").trim() || null,
 
-        dob: body.dob || null,
+        dob,
         gender: body.gender || null,
 
-        mobile:
-          String(body.mobile || "").trim() || null,
+        mobile,
 
         whatsapp:
           String(body.whatsapp || "").trim() || null,

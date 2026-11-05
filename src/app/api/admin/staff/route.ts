@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { staff } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
       .from(staff)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(desc(staff.createdAt));
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     const employeeId =
       String(body.employeeId || "").trim() ||
-      `EMP-${Date.now().toString().slice(-8)}`;
+      `EMP-${randomUUID().slice(0, 8).toUpperCase()}`;
 
     const [member] = await db
       .insert(staff)

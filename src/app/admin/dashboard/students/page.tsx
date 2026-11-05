@@ -43,6 +43,33 @@ export default function StudentsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [newRecord, setNewRecord] = useState({ firstName: "", lastName: "", mobile: "", dob: "", programName: "", email: "", studentStatus: "ACTIVE" });
+
+
+  async function createRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setCreateError("");
+    try {
+      const response = await fetch("/api/admin/students", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(newRecord),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to create student.");
+      setNewRecord({ firstName: "", lastName: "", mobile: "", dob: "", programName: "", email: "", studentStatus: "ACTIVE" });
+      setShowCreateForm(false);
+      await loadStudents();
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Unable to save record.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function loadStudents() {
     try {
@@ -53,10 +80,6 @@ export default function StudentsPage() {
 
       if (status !== "ALL") {
         params.set("status", status);
-      }
-
-      if (search.trim()) {
-        params.set("search", search.trim());
       }
 
       const response = await fetch(
@@ -125,13 +148,53 @@ export default function StudentsPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadStudents}
-          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
-        >
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-expanded={showCreateForm} onClick={() => { setShowCreateForm(!showCreateForm); setCreateError(""); }}
+            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            {showCreateForm ? "Close form" : "Add Student"}
+          </button>
+          <button type="button" onClick={loadStudents} className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Refresh</button>
+        </div>
       </div>
+
+      {showCreateForm && (
+        <form onSubmit={createRecord} className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Add Student</h2>
+          <p className="mb-4 mt-1 text-sm text-slate-500">A student ID is generated automatically. Mobile and date of birth are required for student portal sign-in.</p>
+          {createError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</p>}
+          <div className="grid gap-4 md:grid-cols-2">
+            {([
+              ["firstName", "First name", "text", true],
+              ["lastName", "Last name", "text", false],
+              ["mobile", "Mobile number (10 digits)", "tel", true],
+              ["dob", "Date of birth", "date", true],
+              ["programName", "Program / Course", "text", false],
+              ["email", "Email address", "email", false],
+            ] as const).map(([key, label, type, required]) => (
+              <label key={key} className="block text-sm font-medium text-slate-700">
+                {label}
+                <input
+                  type={type} required={required} value={newRecord[key]}
+                  pattern={key === "mobile" ? "[0-9]{10}" : undefined}
+                  onChange={(e) => setNewRecord({ ...newRecord, [key]: e.target.value })}
+                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-600"
+                />
+              </label>
+            ))}
+            <label className="block text-sm font-medium text-slate-700">
+              Status
+              <select value={newRecord.studentStatus} onChange={(e) => setNewRecord({ ...newRecord, studentStatus: e.target.value })}
+                className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5">
+                {STATUS_OPTIONS.filter((item) => item !== "ALL").map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button type="submit" disabled={saving} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save Student"}</button>
+            <button type="button" onClick={() => { setShowCreateForm(false); setCreateError(""); }} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700">Cancel</button>
+          </div>
+        </form>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-3">

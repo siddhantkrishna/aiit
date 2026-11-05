@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { onlineClasses } from "@/db/schema";
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       .where(
         includePast
           ? eq(onlineClasses.enabled, true)
-          : gte(onlineClasses.scheduledAt, new Date()),
+          : and(eq(onlineClasses.enabled, true), gte(onlineClasses.scheduledAt, new Date())),
       )
       .orderBy(asc(onlineClasses.scheduledAt));
 
