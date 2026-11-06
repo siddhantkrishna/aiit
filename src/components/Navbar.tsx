@@ -15,6 +15,7 @@ const navLinks = [
 ];
 
 const onlineServiceLinks = [
+  { href: "/student", label: "Student Portal" },
   { href: "/online-classes", label: "Online Classes" },
   { href: "/online-inquiry", label: "Online Inquiry" },
   { href: "/online-result", label: "Online Result" },
