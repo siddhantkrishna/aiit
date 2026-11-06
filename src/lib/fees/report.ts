@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { indiaDate } from "./rules";
 
 export type FeeRow = {
-  id: string; orderId: string | null; receiptId: string | null; planId: number; obligationId: number; studentId: number | null; applicationId: number | null;
+  id: string; orderId: string | null; receiptId: string | null; offlineReceiptId: number | null; planId: number; obligationId: number; studentId: number | null; applicationId: number | null;
   centreId: number | null; name: string; studentRef: string; applicationRef: string; courseId: number; course: string; plan: string; semester: number;
   original: number; discount: number; amount: number; refunded: number; gatewayFee: number | null; gatewayTax: number | null;
   status: string; method: string; razorpayOrderId: string | null; razorpayPaymentId: string | null; date: string; captured: boolean; legacy: boolean;
@@ -32,7 +32,7 @@ export async function feeReport(params = new URLSearchParams()) {
       greatest(0,b.amount-coalesce(cr.paid,0)-coalesce(oc.paid,0)) as outstanding,b.due_date::text as "dueDate"
       from owners p join fee_obligations b on b.plan_id=p.id left join credits cr on cr.obligation_id=b.id left join offline oc on oc.obligation_id=b.id
     ), rows as (
-      select coalesce(t.razorpay_payment_id,o.id) as id,o.id as "orderId",r.id as "receiptId",p.id as "planId",b.id as "obligationId",p.student_id as "studentId",p.application_id as "applicationId",
+      select coalesce(t.razorpay_payment_id,o.id) as id,o.id as "orderId",r.id as "receiptId",null::bigint as "offlineReceiptId",p.id as "planId",b.id as "obligationId",p.student_id as "studentId",p.application_id as "applicationId",
       p.centre_id as "centreId",p.name,p.student_ref as "studentRef",p.application_ref as "applicationRef",p.course_id as "courseId",p.course,p.kind as plan,b.semester,p.original_amount as original,p.discount,
       coalesce(t.amount,o.amount) as amount,coalesce(t.refunded,0) as refunded,t.gateway_fee as "gatewayFee",t.gateway_tax as "gatewayTax",
       coalesce(t.status,case when o.status in ('creating','uncertain') then o.status else 'pending' end) as status,coalesce(t.method,'') as method,
@@ -41,9 +41,10 @@ export async function feeReport(params = new URLSearchParams()) {
       from owners p join fee_obligations b on b.plan_id=p.id join fee_orders o on o.obligation_id=b.id
       left join fee_transactions t on t.order_id=o.id left join fee_receipts r on r.transaction_id=t.id
       union all
-      select 'OFF-'||x.id,null,null,p.id,b.id,p.student_id,p.application_id,p.centre_id,p.name,p.student_ref,p.application_ref,p.course_id,p.course,p.kind,b.semester,p.original_amount,p.discount,
+      select 'OFF-'||x.id,null,rr.receipt_no,rr.id,p.id,b.id,p.student_id,p.application_id,p.centre_id,p.name,p.student_ref,p.application_ref,p.course_id,p.course,p.kind,b.semester,p.original_amount,p.discount,
       x.amount,0,null,null,case when x.legacy then 'opening' else 'offline' end,'OFFLINE',null,null,x.received_at::timestamp at time zone 'Asia/Kolkata',true,x.legacy
       from owners p join fee_obligations b on b.plan_id=p.id join fee_offline_credits x on x.obligation_id=b.id
+      left join offline_receipts rr on rr.fee_credit_id=x.id
     ) select coalesce((select jsonb_agg(rows order by date desc) from rows),'[]'::jsonb) as rows,
       coalesce((select jsonb_agg(balances) from balances),'[]'::jsonb) as balances,
       (select count(*)::int from payments) as "legacyRecords"
