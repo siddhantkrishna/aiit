@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminIdentity,feeResponse,sameOrigin } from "@/lib/fees/auth";
 import { asc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { onlineClasses } from "@/db/schema";
@@ -18,6 +19,7 @@ function validWebUrl(value: string) {
 
 export async function GET(req: NextRequest) {
   try {
+    adminIdentity(req);
     const search = text(req.nextUrl.searchParams.get("search"));
     const rows = await db
       .select()
@@ -34,6 +36,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(rows);
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to load online classes:", error);
     return NextResponse.json({ error: "Failed to load online classes." }, { status: 500 });
   }
@@ -41,6 +44,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const body = await req.json();
     const title = text(body.title);
     const scheduledAt = text(body.scheduledAt);
@@ -82,6 +86,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, class: created }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to create online class:", error);
     return NextResponse.json({ error: "Failed to create online class." }, { status: 500 });
   }
@@ -89,6 +94,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const body = await req.json();
     const id = Number(body.id);
     if (!Number.isInteger(id) || id < 1) {
@@ -121,6 +127,7 @@ export async function PUT(req: NextRequest) {
     if (!updated) return NextResponse.json({ error: "Class not found." }, { status: 404 });
     return NextResponse.json({ success: true, class: updated });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to update online class:", error);
     return NextResponse.json({ error: "Failed to update online class." }, { status: 500 });
   }
@@ -128,11 +135,13 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!Number.isInteger(id) || id < 1) return NextResponse.json({ error: "A valid class ID is required." }, { status: 400 });
     await db.delete(onlineClasses).where(eq(onlineClasses.id, id));
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to delete online class:", error);
     return NextResponse.json({ error: "Failed to delete online class." }, { status: 500 });
   }

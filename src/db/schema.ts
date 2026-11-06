@@ -11,6 +11,7 @@ import {
   time,
   serial,
   bigint,
+  bigserial,
   numeric,
   date,
   jsonb,
@@ -2321,3 +2322,26 @@ export const universityFeeSources = pgTable("university_fee_sources", {
   reviewNote: text("review_note").notNull(),
   loadedAt: timestamp("loaded_at", {withTimezone:true}).defaultNow().notNull(),
 });
+
+
+/* Unified student portal — attendance and scoped notices. */
+export const studentAttendance = pgTable("student_attendance",{
+ id:bigserial("id",{mode:"number"}).primaryKey(),
+ studentId:bigint("student_id",{mode:"number"}).notNull().references(()=>students.id,{onDelete:"cascade"}),
+ attendanceDate:date("attendance_date").notNull(),
+ status:varchar("status",{length:16}).$type<"PRESENT"|"ABSENT"|"LATE"|"EXCUSED">().notNull(),
+ notes:text("notes"),
+ markedBy:bigint("marked_by",{mode:"number"}),
+ createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
+},t=>[uniqueIndex("student_attendance_day_idx").on(t.studentId,t.attendanceDate),index("student_attendance_date_idx").on(t.attendanceDate)]);
+export const studentNotices = pgTable("student_notices",{
+ id:bigserial("id",{mode:"number"}).primaryKey(),
+ title:varchar("title",{length:200}).notNull(),
+ body:text("body").notNull(),
+ courseId:integer("course_id").references(()=>courses.id),
+ published:boolean("published").default(true).notNull(),
+ postedAt:timestamp("posted_at",{withTimezone:true}).defaultNow().notNull(),
+ createdBy:bigint("created_by",{mode:"number"}),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
+},t=>[index("student_notices_course_idx").on(t.courseId,t.published,t.postedAt)]);

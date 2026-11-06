@@ -14,6 +14,7 @@ type Service = {
   assignedTo: number | null;
   referenceNumber: string | null;
   notes: string | null;
+  remarks: string | null;
 };
 
 const STATUS_OPTIONS = [
@@ -56,6 +57,10 @@ export default function ServicesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editStatus, setEditStatus] = useState("PENDING");
+  const [editRemarks, setEditRemarks] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function loadServices() {
     try {
@@ -98,6 +103,16 @@ export default function ServicesPage() {
     loadServices();
   }); }, [status]);
 
+  async function saveReview() {
+    if (!editingId) return;
+    setSaving(true);setError("");
+    try {
+      const response=await fetch("/api/admin/services",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:editingId,status:editStatus,remarks:editRemarks})});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error||"Unable to update request.");
+      setEditingId(null);await loadServices();
+    }catch(e){setError(e instanceof Error?e.message:"Unable to update request.");}finally{setSaving(false);}
+  }
   const filteredServices = services.filter((service) => {
     const query = search.trim().toLowerCase();
 
@@ -210,7 +225,7 @@ export default function ServicesPage() {
                   </th>
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Status
+                    Status / Action
                   </th>
                 </tr>
               </thead>
@@ -241,7 +256,8 @@ export default function ServicesPage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm text-slate-700">
-                        {service.serviceType}
+                        <p>{service.serviceType}</p>
+                        {service.notes && <p className="mt-1 max-w-xs whitespace-pre-wrap text-xs text-slate-500">{service.notes}</p>}
                       </td>
 
                       <td className="px-5 py-4">
@@ -276,6 +292,7 @@ export default function ServicesPage() {
                         >
                           {serviceStatus}
                         </span>
+                        <button onClick={()=>{setEditingId(service.id);setEditStatus(serviceStatus);setEditRemarks(service.remarks||"");}} className="mt-2 block text-xs font-semibold text-blue-700 underline">Update</button>
                       </td>
                     </tr>
                   );
@@ -286,6 +303,12 @@ export default function ServicesPage() {
         )}
       </div>
 
+      {editingId !== null && <section className="space-y-3 rounded-xl border border-blue-200 bg-white p-5">
+        <h2 className="font-bold">Update student request #{editingId}</h2>
+        <label className="block text-sm">Status<select className="mt-1 block w-full rounded-lg border p-2" value={editStatus} onChange={e=>setEditStatus(e.target.value)}>{STATUS_OPTIONS.filter(s=>s!=="ALL").map(s=><option key={s}>{s}</option>)}</select></label>
+        <label className="block text-sm">Student-facing response<textarea rows={3} maxLength={1000} className="mt-1 block w-full rounded-lg border p-2" value={editRemarks} onChange={e=>setEditRemarks(e.target.value)} placeholder="Share a status update or explanation with the student"/></label>
+        <div className="flex gap-2"><button disabled={saving} onClick={()=>void saveReview()} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white">Save response</button><button onClick={()=>setEditingId(null)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button></div>
+      </section>}
       <p className="text-sm text-slate-500">
         Showing {filteredServices.length} services.
       </p>

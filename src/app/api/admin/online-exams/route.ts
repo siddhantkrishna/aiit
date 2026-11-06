@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminIdentity,feeResponse,sameOrigin } from "@/lib/fees/auth";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { onlineExams } from "@/db/schema";
@@ -53,11 +54,13 @@ function parseQuestions(value: unknown): Question[] {
   });
 }
 
-export async function GET() {
+export async function GET(req:NextRequest) {
   try {
+    adminIdentity(req);
     const rows = await db.select().from(onlineExams).orderBy(desc(onlineExams.createdAt));
     return NextResponse.json(rows);
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to load exams:", error);
     return NextResponse.json({ error: "Failed to load exams." }, { status: 500 });
   }
@@ -65,6 +68,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const body = await req.json();
     const title = text(body.title);
     const examCode = text(body.examCode).toUpperCase();
@@ -114,6 +118,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, exam }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to create exam:", error);
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
       return NextResponse.json({ error: "This exam code already exists." }, { status: 409 });
@@ -124,6 +129,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!Number.isSafeInteger(id) || id < 1) {
       return NextResponse.json({ error: "A valid exam ID is required." }, { status: 400 });
@@ -132,6 +138,7 @@ export async function DELETE(req: NextRequest) {
     if (!deleted.length) return NextResponse.json({ error: "Exam not found." }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to delete exam:", error);
     return NextResponse.json({ error: "Failed to delete exam." }, { status: 500 });
   }

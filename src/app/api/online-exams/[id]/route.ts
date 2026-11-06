@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { onlineExamAttempts, onlineExams } from "@/db/schema";
+import { onlineExamAttempts, onlineExams, students } from "@/db/schema";
 import { getStudentFromRequest } from "@/lib/student-auth";
 
 type Question = { id: string; question: string; options: string[]; correctAnswer?: number; marks?: number };
@@ -23,6 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const id = Number((await params).id);
     const [exam] = await db.select().from(onlineExams).where(and(eq(onlineExams.id, id), eq(onlineExams.published, true)));
     if (!exam) return NextResponse.json({ error: "Exam not found." }, { status: 404 });
+    const [person]=await db.select({courseId:students.courseId}).from(students).where(eq(students.id,Number(sessionId)));
+    if(!person||(exam.courseId!==null&&exam.courseId!==person.courseId))return NextResponse.json({error:"Exam is not available for this student."},{status:403});
     const [attempt] = await db.select({ id: onlineExamAttempts.id, attemptStatus: onlineExamAttempts.attemptStatus, score: onlineExamAttempts.score, resultStatus: onlineExamAttempts.resultStatus }).from(onlineExamAttempts).where(and(eq(onlineExamAttempts.examId, id), eq(onlineExamAttempts.studentId, Number(sessionId))));
     return NextResponse.json({ exam: { ...exam, questions: publicQuestions(exam.questions) }, attempt: attempt || null });
   } catch (error) {
@@ -33,6 +35,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const origin=req.headers.get("origin");
+    if(origin&&origin!==req.nextUrl.origin)return NextResponse.json({error:"Cross-origin request rejected."},{status:403});
     const sessionId = getStudentFromRequest(req);
     if (!sessionId) return NextResponse.json({ error: "Student login required." }, { status: 401 });
     const id = Number((await params).id);
@@ -40,6 +44,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const answers = body.answers && typeof body.answers === "object" ? body.answers : {};
     const [exam] = await db.select().from(onlineExams).where(and(eq(onlineExams.id, id), eq(onlineExams.published, true)));
     if (!exam) return NextResponse.json({ error: "Exam not found." }, { status: 404 });
+    const [person]=await db.select({courseId:students.courseId}).from(students).where(eq(students.id,Number(sessionId)));
+    if(!person||(exam.courseId!==null&&exam.courseId!==person.courseId))return NextResponse.json({error:"Exam is not available for this student."},{status:403});
 
     const now = Date.now();
     if (exam.startsAt && now < new Date(exam.startsAt).getTime()) return NextResponse.json({ error: "This exam has not started yet." }, { status: 400 });

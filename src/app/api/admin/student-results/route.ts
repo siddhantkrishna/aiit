@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminIdentity,feeResponse,sameOrigin } from "@/lib/fees/auth";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { studentResults, students } from "@/db/schema";
 
-export async function GET() {
+export async function GET(req:NextRequest) {
   try {
+    adminIdentity(req);
     const rows = await db.select({ result: studentResults, student: { studentId: students.studentId, firstName: students.firstName, lastName: students.lastName } })
       .from(studentResults).leftJoin(students, eq(studentResults.studentId, students.id)).orderBy(desc(studentResults.createdAt));
     return NextResponse.json(rows);
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to load results:", error);
     return NextResponse.json({ error: "Failed to load results." }, { status: 500 });
   }
@@ -16,6 +19,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const body = await req.json();
     const studentId = Number(body.studentId);
     const maxMarks = Number(body.maxMarks);
@@ -39,6 +43,7 @@ export async function POST(req: NextRequest) {
     }).returning();
     return NextResponse.json({ success: true, result }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to create student result:", error);
     return NextResponse.json({ error: "Failed to save result." }, { status: 500 });
   }
@@ -46,11 +51,13 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    sameOrigin(req); adminIdentity(req);
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!Number.isInteger(id) || id < 1) return NextResponse.json({ error: "Valid result ID required." }, { status: 400 });
     await db.delete(studentResults).where(eq(studentResults.id, id));
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.name==="FeeError") return feeResponse(error);
     console.error("Failed to delete result:", error);
     return NextResponse.json({ error: "Failed to delete result." }, { status: 500 });
   }

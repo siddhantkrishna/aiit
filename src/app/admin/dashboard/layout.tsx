@@ -52,6 +52,21 @@ const sidebarLinks = [
     icon: "📈",
   },
   {
+    href: "/admin/dashboard/student-attendance",
+    label: "Student Attendance",
+    icon: "📅",
+  },
+  {
+    href: "/admin/dashboard/student-notices",
+    label: "Student Notices",
+    icon: "📢",
+  },
+  {
+    href: "/admin/dashboard/student-documents",
+    label: "Student Documents",
+    icon: "📄",
+  },
+  {
     href: "/admin/dashboard/students",
     label: "Students",
     icon: "🎓",
