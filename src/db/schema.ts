@@ -2293,3 +2293,31 @@ export const offlineReceiptNotifications = pgTable("offline_receipt_notification
   providerReference: varchar("provider_reference", { length: 255 }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [uniqueIndex("offline_notification_target_idx").on(t.receiptId,t.channel,t.destination)]);
+
+
+/**
+ * Source-listed university fees imported from administrative price worksheets.
+ * They are reference prices only, not payable fee contracts. An administrator
+ * must approve the full-course fee and installment schedule separately.
+ */
+export const universityFeeSources = pgTable("university_fee_sources", {
+  id: bigint("id", {mode:"number"}).primaryKey(),
+  universityId: integer("university_id").notNull().references(() => universities.id),
+  sourceFile: varchar("source_file", {length:180}).notNull(),
+  sourceSheet: varchar("source_sheet", {length:100}).notNull(),
+  sourceRow: integer("source_row").notNull(),
+  courseName: varchar("course_name", {length:255}).notNull(),
+  studyMode: varchar("study_mode", {length:40}).notNull(),
+  feeBasis: varchar("fee_basis", {length:40}).notNull(),
+  listedAmountPaise: integer("listed_amount_paise").notNull(),
+  componentBreakdown: jsonb("component_breakdown").$type<{
+    admission:number|null;registration:number|null;exam:number|null;
+    tuition:number|null;tuitionDiscount:number|null;
+    semester1:number|null;semester2:number|null;
+  }>().notNull(),
+  duration: varchar("duration", {length:100}),
+  eligibility: varchar("eligibility", {length:100}),
+  reviewStatus: varchar("review_status", {length:30}).notNull(),
+  reviewNote: text("review_note").notNull(),
+  loadedAt: timestamp("loaded_at", {withTimezone:true}).defaultNow().notNull(),
+});
