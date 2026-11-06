@@ -15,8 +15,9 @@ export async function GET(req:NextRequest) {
       if (studentId && applicationId) throw new FeeError("Select either an application or student.");
       const result=await portal({adminId},{studentId,applicationId});
       const [application]=result.person.applicationId ? await db.select({fatherName:applications.fatherName,motherName:applications.motherName}).from(applications).where(eq(applications.id,result.person.applicationId)) : [];
+      const [student]=result.person.studentId ? await db.select({fatherName:students.fatherName,motherName:students.motherName}).from(students).where(eq(students.id,result.person.studentId)) : [];
       // Preserve historical student parent details where an application was not linked.
-      return NextResponse.json({detail:result,parents:{fatherName:application?.fatherName||"",motherName:application?.motherName||""}});
+      return NextResponse.json({detail:result,parents:{fatherName:application?.fatherName||student?.fatherName||"",motherName:application?.motherName||student?.motherName||""}});
     }
     const search=params.get("search") || "";
     const [people,staff]=await Promise.all([searchReceivingPeople(search),receivingOptions()]);

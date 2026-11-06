@@ -435,6 +435,8 @@ export const students = pgTable("students", {
 
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),
+  fatherName: varchar("father_name", { length: 255 }),
+  motherName: varchar("mother_name", { length: 255 }),
 
   dob: date("dob"),
   gender: varchar("gender", { length: 30 }),

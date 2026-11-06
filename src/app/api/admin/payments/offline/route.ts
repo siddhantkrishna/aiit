@@ -16,7 +16,7 @@ export async function POST(req:NextRequest) {
     const body=await req.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new FeeError("Invalid receipt submission.");
     const result=await recordOfflinePayment(adminId,body);
-    const notifications=result.duplicate ? [] : await sendReceiptNotifications(result.receipt.id);
+    const notifications=result.duplicate ? [] : await sendReceiptNotifications(result.receipt.id).catch(() => [{channel:"SYSTEM",recipient:"ALL",status:"failed"}]);
     return NextResponse.json({success:true,duplicate:result.duplicate,receipt:result.receipt,notifications},{status:result.duplicate ? 200 : 201});
   } catch(error) {
     const cause=error instanceof Error && "cause" in error ? error.cause : error;
