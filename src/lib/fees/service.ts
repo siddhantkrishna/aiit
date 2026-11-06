@@ -5,6 +5,7 @@ import { applications, courses, students, payments, feeConfigurations, feePlans,
 import { FeeError, fullFee, indiaDate, mayAccess, netPaid, obligationState, signatureValid } from "./rules";
 import { FeeIdentity } from "./auth";
 import { gateway } from "./provider";
+import { feeForUniversity } from "./scope";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Store = typeof db | Tx;
@@ -77,7 +78,7 @@ export async function portal(who: FeeIdentity, target: Target = {}) {
     let plan = await findPlan(tx, person);
     if (plan && person.studentId && !plan.studentId) [plan] = await tx.update(feePlans).set({ studentId: person.studentId }).where(eq(feePlans.id, plan.id)).returning();
     const configurations = person.courseId ? await tx.select().from(feeConfigurations).where(and(eq(feeConfigurations.courseId, person.courseId), lte(feeConfigurations.effectiveFrom, indiaDate()))).orderBy(desc(feeConfigurations.effectiveFrom), desc(feeConfigurations.id)) : [];
-    const config = configurations.find(c => c.universityId === person.universityId) || configurations.find(c => c.universityId === null);
+    const config = feeForUniversity(configurations, person.universityId);
     return { person, configuration: config || null, full: config ? fullFee(config.originalAmount) : null, plan: plan ? await planSummary(tx, plan) : null,
       checkoutConfigured: !!process.env.RAZORPAY_KEY_ID && !!process.env.RAZORPAY_KEY_SECRET,
       testMode: !process.env.RAZORPAY_KEY_ID?.startsWith("rzp_live_") };
@@ -88,14 +89,15 @@ export async function selectPlan(who: FeeIdentity, kind: unknown, target: Target
   return db.transaction(async tx => {
     const person = await owner(tx, who, target);
     if (!person.courseId) throw new FeeError("An administrator must assign a course first.", 409);
+    if (!person.universityId) throw new FeeError("Select a university for this enrollment before choosing a payment plan.", 409);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`fees:${person.applicationId ? `a${person.applicationId}` : `s${person.studentId}`}`}))`);
     let plan = await findPlan(tx, person);
     if (plan && plan.kind === kind) return plan;
     if (plan && (await planSummary(tx, plan)).locked) throw new FeeError("A checkout order or payment already exists. Accounts must review any plan change.", 409);
     if (kind === "full" && person.needsReview) throw new FeeError("Historical payment activity requires a semester plan and an audited accounts review. Upfront discount is unavailable.", 409);
     const configurations = await tx.select().from(feeConfigurations).where(and(eq(feeConfigurations.courseId, person.courseId), lte(feeConfigurations.effectiveFrom, indiaDate()))).orderBy(desc(feeConfigurations.effectiveFrom), desc(feeConfigurations.id));
-    const config = configurations.find(c => c.universityId === person.universityId) || configurations.find(c => c.universityId === null);
-    if (!config) throw new FeeError("Accounts must configure the course fee and semester schedule before checkout.", 409);
+    const config = feeForUniversity(configurations, person.universityId);
+    if (!config) throw new FeeError("Accounts must configure the fee and semester schedule for this university and course before checkout.", 409);
     const discount = kind === "full" ? fullFee(config.originalAmount).discount : 0;
     if (plan) {
       await tx.delete(feeObligations).where(eq(feeObligations.planId, plan.id));

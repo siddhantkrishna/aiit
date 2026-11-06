@@ -153,12 +153,12 @@ export default function CoursesManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Fee</label>
+                  <label className="block text-sm font-medium mb-1">Legacy fee description (not used for checkout)</label>
                   <input
                     value={form.fee}
                     onChange={(e) => setForm({ ...form, fee: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
-                    placeholder="e.g., ₹25,000/year"
+                    placeholder="Leave blank; configure approved university-wise fees in Payments"
                   />
                 </div>
               </div>

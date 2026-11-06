@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminIdentity, feeResponse, sameOrigin } from "@/lib/fees/auth";
 import { db } from "@/db";
 import { courses } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -8,6 +9,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    sameOrigin(req);
+    adminIdentity(req);
     const { id } = await params;
     const body = await req.json();
     const updated = await db
@@ -17,7 +20,7 @@ export async function PUT(
         fullName: body.fullName,
         duration: body.duration,
         eligibility: body.eligibility,
-        universityId: body.universityId || null,
+        ...(body.universityId !== undefined ? { universityId: Number(body.universityId) || null } : {}),
         studyMode: body.studyMode,
         category: body.category,
         fee: body.fee || null,
@@ -28,21 +31,23 @@ export async function PUT(
     return NextResponse.json(updated[0]);
   } catch (error) {
     console.error("Error updating course:", error);
-    return NextResponse.json({ error: "Failed to update course" }, { status: 500 });
+    return feeResponse(error);
   }
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    sameOrigin(req);
+    adminIdentity(req);
     const { id } = await params;
     await db.delete(courses).where(eq(courses.id, parseInt(id)));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting course:", error);
-    return NextResponse.json({ error: "Failed to delete course" }, { status: 500 });
+    return feeResponse(error);
   }
 }
 

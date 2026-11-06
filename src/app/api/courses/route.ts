@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminIdentity, feeResponse, sameOrigin } from "@/lib/fees/auth";
 import { db } from "@/db";
 import { courses } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -15,6 +16,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    sameOrigin(req);
+    adminIdentity(req);
     const body = await req.json();
     const newCourse = await db.insert(courses).values({
       name: body.name,
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(newCourse[0]);
   } catch (error) {
     console.error("Error creating course:", error);
-    return NextResponse.json({ error: "Failed to create course" }, { status: 500 });
+    return feeResponse(error);
   }
 }
 
