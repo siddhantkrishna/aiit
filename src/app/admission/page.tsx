@@ -2,7 +2,8 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { courseDisplayName, matchingCourses, resolveTypedCourse, universityCourses } from "@/lib/course-search";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -61,6 +62,8 @@ export default function AdmissionPage() {
   const [universities, setUniversities] = useState<University[]>([]);
   const [selectedUniversity, setSelectedUniversity] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [courseSearch, setCourseSearch] = useState("");
+  const courseDropdownRef = useRef<HTMLSelectElement>(null);
   const [selectedFee, setSelectedFee] = useState<{ originalAmount: number; semesters: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -69,6 +72,21 @@ export default function AdmissionPage() {
 
   const [recoveryCode, setRecoveryCode] = useState("");
   const [warning, setWarning] = useState("");
+  const availableCourses = universityCourses(courses, Number(selectedUniversity));
+  const filteredCourses = matchingCourses(availableCourses, courseSearch);
+
+  function chooseCourse(courseId: string) {
+    const course = availableCourses.find(item => String(item.id) === courseId);
+    setSelectedCourse(course ? String(course.id) : "");
+    setCourseSearch(course ? courseDisplayName(course) : "");
+    setSelectedFee(null);
+  }
+  function handleCourseSearch(query: string) {
+    setCourseSearch(query);
+    const match = resolveTypedCourse(availableCourses, query);
+    setSelectedCourse(match ? String(match.id) : "");
+    setSelectedFee(null);
+  }
   const [submissionKey] = useState(() => typeof window === "undefined" ? "" : (sessionStorage.getItem("aiit-admission-key") || (() => {
     const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
     sessionStorage.setItem("aiit-admission-key", key); return key;
@@ -232,23 +250,71 @@ export default function AdmissionPage() {
                       University <span className="text-red-500">*</span>
                     </label>
                     <select name="universityId" required value={selectedUniversity}
-                      onChange={e => { setSelectedUniversity(e.target.value); setSelectedCourse(""); setSelectedFee(null); }}
+                      onChange={e => { setSelectedUniversity(e.target.value); setSelectedCourse(""); setCourseSearch(""); setSelectedFee(null); }}
                       className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
                       <option value="">Choose university first</option>
                       {universities.map(u => <option key={u.id} value={u.id}>{u.name} ({u.shortName})</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
+                    <label htmlFor="course-search" className="block text-sm font-medium text-foreground mb-1">
+                      Search Course
+                    </label>
+                    <input
+                      id="course-search"
+                      type="search"
+                      autoComplete="off"
+                      list="aiit-course-suggestions"
+                      value={courseSearch}
+                      disabled={!selectedUniversity}
+                      placeholder={selectedUniversity ? "Type DCA, MBA, course name..." : "Select university first"}
+                      aria-describedby="course-search-help"
+                      onChange={e => handleCourseSearch(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const course = resolveTypedCourse(availableCourses, courseSearch);
+                          if (course) chooseCourse(String(course.id));
+                          else if (filteredCourses.length > 0) courseDropdownRef.current?.focus();
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:opacity-60"
+                    />
+                    <datalist id="aiit-course-suggestions">
+                      {availableCourses.map(course => (
+                        <option key={course.id} value={courseDisplayName(course)} />
+                      ))}
+                    </datalist>
+                    <p id="course-search-help" className="mt-1 text-xs text-slate-500">
+                      Type to filter courses, choose a suggestion, or use the dropdown.
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="course-select" className="block text-sm font-medium text-foreground mb-1">
                       Select Course <span className="text-red-500">*</span>
                     </label>
-                    <select name="courseId" required disabled={!selectedUniversity} value={selectedCourse}
-                      onChange={e => { setSelectedCourse(e.target.value); setSelectedFee(null); }}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:opacity-60">
-                      <option value="">{selectedUniversity ? "Choose course" : "Select university first"}</option>
-                      {courses.filter(c => !c.universityId || c.universityId === Number(selectedUniversity)).map(c =>
-                        <option key={c.id} value={c.id}>{c.name} — {c.fullName}</option>)}
+                    <select
+                      ref={courseDropdownRef}
+                      id="course-select"
+                      name="courseId"
+                      required
+                      disabled={!selectedUniversity}
+                      value={selectedCourse}
+                      onChange={e => chooseCourse(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:opacity-60"
+                    >
+                      <option value="">{!selectedUniversity
+                        ? "Select university first"
+                        : filteredCourses.length === 0 ? "No matching courses" : "Choose course"}</option>
+                      {filteredCourses.map(course => (
+                        <option key={course.id} value={course.id}>{courseDisplayName(course)}</option>
+                      ))}
                     </select>
+                    {selectedUniversity && (
+                      <p aria-live="polite" className="mt-1 text-xs text-slate-500">
+                        {selectedCourse ? "Course selected" : `${filteredCourses.length} matching course(s)`}
+                      </p>
+                    )}
                   </div>
                   {selectedCourse && <p aria-live="polite" className="col-span-full text-sm text-slate-600">
                     {selectedFee
