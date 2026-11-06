@@ -8,6 +8,7 @@ import {
   integer,
   boolean,
   timestamp,
+  time,
   serial,
   bigint,
   numeric,
@@ -830,15 +831,22 @@ export const staffAttendance = pgTable(
 
     staffId: bigint("staff_id", {
       mode: "number",
-    }).notNull(),
+    }).notNull().references(() => staff.id),
 
     centreId: integer("centre_id"),
 
     attendanceDate: date("attendance_date")
       .notNull(),
 
-    checkIn: timestamp("check_in"),
-    checkOut: timestamp("check_out"),
+    checkIn: timestamp("check_in", { withTimezone: true }),
+    checkOut: timestamp("check_out", { withTimezone: true }),
+
+    shiftStart: time("shift_start"),
+    notes: text("notes"),
+    isDemo: boolean("is_demo").default(false).notNull(),
+    markedBy: integer("marked_by"),
+    version: integer("version").default(1).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 
     workingHours: numeric("working_hours"),
 
@@ -848,10 +856,11 @@ export const staffAttendance = pgTable(
       length: 50,
     }),
 
-    createdAt: timestamp("created_at")
+    createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
+  (t) => [uniqueIndex("staff_attendance_staff_date_unique").on(t.staffId,t.attendanceDate)],
 );
 
 /* =========================================================
