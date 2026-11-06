@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type Staff = {
@@ -279,7 +280,7 @@ export default function StaffPage() {
                     >
                       <td className="px-5 py-4">
                         <p className="font-semibold text-slate-900">
-                          {member.name}
+                          <Link href={`/admin/dashboard/staff/${member.id}`} className="text-blue-700 underline">{member.name}</Link>
                         </p>
 
                         <p className="text-xs text-slate-400 mt-1">
