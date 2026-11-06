@@ -67,7 +67,7 @@ function IdentityCard({s,photoId}:{s:Student;photoId:number|null}){
 
 export default function StudentDashboard(){
  const [data,setData]=useState<Portal|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[tab,setTab]=useState<Tab>("overview");
- const [login,setLogin]=useState({studentId:"",mobile:"",dob:""}),[loginBusy,setLoginBusy]=useState(false);
+ const [login,setLogin]=useState({mobile:"",dob:""}),[loginBusy,setLoginBusy]=useState(false);
  const [service,setService]=useState({type:serviceTypes[0],message:""}),[serviceBusy,setServiceBusy]=useState(false);
  const [docType,setDocType]=useState(docTypes[0]),[file,setFile]=useState<File|null>(null),[uploadBusy,setUploadBusy]=useState(false),[notice,setNotice]=useState("");
  const load=useCallback(async()=>{
@@ -82,7 +82,7 @@ export default function StudentDashboard(){
  },[]);
  useEffect(()=>{startTransition(()=>{void load();});},[load]);
  async function signIn(e:React.FormEvent){e.preventDefault();setLoginBusy(true);setError("");
-  try{const res=await fetch("/api/student/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(login)});const json=await res.json();if(!res.ok)throw new Error(json.error||"Sign-in failed");setLogin({studentId:"",mobile:"",dob:""});await load();}
+  try{const res=await fetch("/api/student/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(login)});const json=await res.json();if(!res.ok)throw new Error(json.error||"Sign-in failed");setLogin({mobile:"",dob:""});await load();}
   catch(e){setError(e instanceof Error?e.message:"Sign-in failed");}finally{setLoginBusy(false);}
  }
  async function signOut(){await fetch("/api/student/logout",{method:"POST"});setData(null);setTab("overview");setLogin({studentId:"",mobile:"",dob:""});}
@@ -101,14 +101,13 @@ export default function StudentDashboard(){
   <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
    <Link href="/" className="flex items-center gap-3"><Image src="/images/aiit-logo.png" alt="AIIT" width={45} height={45}/><span className="text-lg font-bold text-slate-900">AIIT College</span></Link>
    <p className="mt-9 text-xs font-bold uppercase tracking-[.2em] text-blue-700">Student portal</p><h1 className="mt-2 text-3xl font-bold text-slate-950">Welcome back.</h1>
-   <p className="mt-2 text-sm leading-6 text-slate-500">Use your issued Student ID, registered mobile number and date of birth to access your records.</p>
+   <p className="mt-2 text-sm leading-6 text-slate-500">Sign in using your registered mobile number and date of birth. No Student ID needed.</p>
    {error&&<p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
    <form onSubmit={signIn} className="mt-7 space-y-4">
-    <label className="block text-sm font-medium text-slate-700">Student ID<input className={input+" mt-2"} required autoComplete="username" value={login.studentId} onChange={e=>setLogin({...login,studentId:e.target.value})} placeholder="STU-XXXXXXXX"/></label>
-    <label className="block text-sm font-medium text-slate-700">Registered mobile<input className={input+" mt-2"} required inputMode="numeric" maxLength={10} value={login.mobile} onChange={e=>setLogin({...login,mobile:e.target.value})} placeholder="10-digit number"/></label>
+    <label className="block text-sm font-medium text-slate-700">Registered mobile number<input className={input+" mt-2"} required autoComplete="tel-national" inputMode="numeric" pattern="[6-9][0-9]{9}" maxLength={10} value={login.mobile} onChange={e=>setLogin({...login,mobile:e.target.value})} placeholder="10-digit number"/></label>
     <label className="block text-sm font-medium text-slate-700">Date of birth<input className={input+" mt-2"} type="date" required value={login.dob} onChange={e=>setLogin({...login,dob:e.target.value})}/></label>
     <button disabled={loginBusy} className="w-full rounded-lg bg-blue-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{loginBusy?"Verifying…":"Open Student Portal"}</button>
-   </form><p className="mt-5 text-xs leading-5 text-slate-500">Not enrolled yet? Submit your application first. Contact admissions if your Student ID has not been issued.</p>
+   </form><p className="mt-5 text-xs leading-5 text-slate-500">Not enrolled yet? Submit an admission application. If you cannot access your account, contact admissions to verify your registered mobile number.</p>
    <Link href="/admission" className="mt-4 inline-block text-sm font-semibold text-blue-700">Apply for admission</Link>
   </div></main>;
  const s=data.student;
