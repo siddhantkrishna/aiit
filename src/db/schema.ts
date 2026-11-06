@@ -2345,3 +2345,12 @@ export const studentNotices = pgTable("student_notices",{
  createdBy:bigint("created_by",{mode:"number"}),
  updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
 },t=>[index("student_notices_course_idx").on(t.courseId,t.published,t.postedAt)]);
+
+/* Rate-limiting support for student mobile-based login (HMAC-hashed scope). */
+export const studentLoginAttempts = pgTable("student_login_attempts",{
+ scopeHash:varchar("scope_hash",{length:64}).primaryKey(),
+ failedCount:integer("failed_count").notNull().default(0),
+ windowStartedAt:timestamp("window_started_at",{withTimezone:true}).defaultNow().notNull(),
+ lockedUntil:timestamp("locked_until",{withTimezone:true}),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
+});
