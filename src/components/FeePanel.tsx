@@ -94,7 +94,6 @@ export default function FeePanel({ studentId, applicationId, admin = false }: { 
       {admin && data.person.applicationId && <form className="space-y-3 rounded-xl border bg-white p-5" onSubmit={e => { e.preventDefault(); void run(async () => { const result = await feeRequest("/api/admin/payments/actions", { action: "reset_applicant_access", applicationId: data.person.applicationId, reason: recoveryReason }); setRecovery(result.recoveryCode); }); }}>
         <h3 className="font-bold">Issue / reset applicant payment recovery code</h3><label className="block text-sm">Identity verification and audit reason<input className={inputClass} required minLength={10} value={recoveryReason} onChange={e => setRecoveryReason(e.target.value)} /></label><button className={buttonClass} disabled={busy}>Issue private code</button>{recovery && <div><p className="text-sm">Share securely with the verified applicant. Existing sessions expire within 8 hours.</p><code className="block break-all bg-slate-100 p-3">{recovery}</code></div>}
       </form>}
-      {!data.configuration && !data.plan && <p className="rounded-lg bg-amber-50 p-4 text-amber-900">Accounts must configure this course’s fee and semester structure before payment is available.</p>}
       {!data.configuration && !data.plan && <p className="rounded-lg bg-amber-50 p-4 text-amber-900">Accounts must configure an approved fee for this university and course before payment is available.</p>}
       {data.configuration && (!data.plan || (showPlanChoices && !data.plan.locked)) && (
         <div className="space-y-3">
@@ -122,7 +121,7 @@ export default function FeePanel({ studentId, applicationId, admin = false }: { 
           </div>
         </div>
       )}
-      {data.plan && !showPlanChoices && (
+      {data.plan && (!showPlanChoices || data.plan.locked) && (
         <div className="space-y-5">
           <section className="rounded-2xl border bg-white p-5 md:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
