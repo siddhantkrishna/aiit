@@ -40,9 +40,10 @@ const signed = raw => createHmac('sha256',process.env.RAZORPAY_WEBHOOK_SECRET).u
 let fixtureNumber=0;
 async function applicant() {
   const i=++fixtureNumber;
-  const [course]=await database.insert(schema.courses).values({name:`Test course ${i}`,enabled:true}).returning();
-  const [application]=await database.insert(schema.applications).values({applicationId:`TEST-${i}`,courseId:course.id,firstName:'TEST',lastName:`Applicant ${i}`,fatherName:'TEST',motherName:'TEST',dob:'2000-01-01',gender:'Other',mobile:'9999999999',address:'TEST ONLY',city:'TEST',state:'TEST',pinCode:'000000',declaration:true,status:'pending'}).returning();
-  await admin.configure(1,{courseId:course.id,originalFee:'60000.00',semesters:4,effectiveFrom:'2020-01-01',reason:'Isolated test fixture only',schedule:[{amount:'10000',dueDate:'2020-01-01'},{amount:'20000',dueDate:'2020-02-01'},{amount:'15000',dueDate:'2099-01-01'},{amount:'15000',dueDate:'2099-02-01'}]});
+  const [university]=await database.insert(schema.universities).values({name:`Test University ${i}`,enabled:true}).returning();
+  const [course]=await database.insert(schema.courses).values({name:`Test course ${i}`,enabled:true,universityId:university.id}).returning();
+  const [application]=await database.insert(schema.applications).values({applicationId:`TEST-${i}`,courseId:course.id,universityId:university.id,firstName:'TEST',lastName:`Applicant ${i}`,fatherName:'TEST',motherName:'TEST',dob:'2000-01-01',gender:'Other',mobile:'9999999999',address:'TEST ONLY',city:'TEST',state:'TEST',pinCode:'000000',declaration:true,status:'pending'}).returning();
+  await admin.configure(1,{courseId:course.id,universityId:university.id,originalFee:'60000.00',semesters:4,effectiveFrom:'2020-01-01',reason:'Isolated test fixture only',schedule:[{amount:'10000',dueDate:'2020-01-01'},{amount:'20000',dueDate:'2020-02-01'},{amount:'15000',dueDate:'2099-01-01'},{amount:'15000',dueDate:'2099-02-01'}]});
   return {who:{applicationId:application.id},application,course};
 }
 function providerPayment(order,status='captured') {
@@ -73,6 +74,7 @@ before(async()=>{
     await pool.query(`CREATE TABLE "${cfg.name}" (${columns.join(',')})`);
   }
   await pool.query(fs.readFileSync(path.join(__dirname,'../drizzle/0006_verified_fees.sql'),'utf8'));
+  await pool.query(fs.readFileSync(path.join(__dirname,'../drizzle/0009_university_fees.sql'),'utf8'));
   service=require('../src/lib/fees/service.ts');rules=require('../src/lib/fees/rules.ts');admin=require('../src/lib/fees/admin.ts');webhook=require('../src/lib/fees/webhook.ts');report=require('../src/lib/fees/report.ts');
 });
 after(async()=>{if(pool)await pool.end();if(embedded)await embedded.stop();});
