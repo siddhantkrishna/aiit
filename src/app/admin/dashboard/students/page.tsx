@@ -18,10 +18,14 @@ type Student = {
 
 const STATUS_OPTIONS = [
   "ALL",
+  "APPLICATION",
+  "ADMITTED",
   "ACTIVE",
-  "INACTIVE",
+  "EXAM DUE",
+  "RESULT PENDING",
   "COMPLETED",
   "DROPPED",
+  "TRANSFERRED",
 ];
 
 function statusClass(status: string) {

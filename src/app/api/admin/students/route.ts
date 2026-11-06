@@ -68,6 +68,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const documentStatus = String(body.documentStatus || "NOT RECEIVED").trim().toUpperCase();
+    if (!["NOT RECEIVED", "PARTIAL", "COMPLETE"].includes(documentStatus)) {
+      return NextResponse.json(
+        { error: "Document status must be NOT RECEIVED, PARTIAL, or COMPLETE." },
+        { status: 400 },
+      );
+    }
+
     const studentId =
       String(body.studentId || "").trim() ||
       `STU-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -153,16 +161,10 @@ export async function POST(req: NextRequest) {
             ? String(body.amountPaid)
             : "0",
 
-        amountPending:
-          body.amountPending != null
-            ? String(body.amountPending)
-            : "0",
-
         paymentStatus:
           String(body.paymentStatus || "PENDING"),
 
-        documentStatus:
-          String(body.documentStatus || "PENDING"),
+        documentStatus,
 
         applicationStatus:
           String(body.applicationStatus || "COMPLETED"),
@@ -214,10 +216,21 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("Failed to create student:", error);
+    const cause = error instanceof Error && "cause" in error ? error.cause : error;
+    const code = cause && typeof cause === "object" && "code" in cause
+      ? String(cause.code)
+      : "unknown";
+    // Avoid logging SQL parameters, which can contain student contact details.
+    console.error("Failed to create student (database code):", code);
 
+    if (code === "23505") {
+      return NextResponse.json(
+        { error: "A student with this ID already exists." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to create student." },
+      { error: "Failed to create student. Please contact the administrator if the problem persists." },
       { status: 500 },
     );
   }

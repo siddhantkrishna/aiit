@@ -11,6 +11,7 @@ import {
   date,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /* =========================================================
    UNIVERSITIES
@@ -460,7 +461,9 @@ export const students = pgTable("students", {
 
   totalFee: numeric("total_fee").default("0"),
   amountPaid: numeric("amount_paid").default("0"),
-  amountPending: numeric("amount_pending").default("0"),
+  amountPending: numeric("amount_pending").generatedAlwaysAs(
+    sql`(COALESCE(total_fee, (0)::numeric) - COALESCE(amount_paid, (0)::numeric))`,
+  ),
 
   paymentStatus: varchar("payment_status", {
     length: 50,
@@ -468,7 +471,7 @@ export const students = pgTable("students", {
 
   documentStatus: varchar("document_status", {
     length: 50,
-  }).default("PENDING"),
+  }).default("NOT RECEIVED"),
 
   applicationStatus: varchar("application_status", {
     length: 50,
