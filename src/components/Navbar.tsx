@@ -48,33 +48,41 @@ export default function Navbar() {
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-0.5">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary rounded-lg hover:bg-blue-50 transition-colors"
+                className="px-2 py-2 text-sm font-medium text-foreground hover:text-primary rounded-lg hover:bg-blue-50 transition-colors"
               >
                 {link.label}
               </Link>
             ))}
             <div className="relative group">
-              <button type="button" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary rounded-lg hover:bg-blue-50 transition-colors">Online Services ▾</button>
+              <button type="button" className="px-2 py-2 text-sm font-medium text-foreground hover:text-primary rounded-lg hover:bg-blue-50 transition-colors">Online Services ▾</button>
               <div className="invisible absolute right-0 top-full mt-2 w-56 translate-y-1 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
                 {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-primary">{link.label}</Link>)}
               </div>
             </div>
-            <Link
-              href="/admission"
-              className="ml-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors"
-            >
-              Apply Now
-            </Link>
+            <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-3">
+              <Link
+                href="/student"
+                className="rounded-lg border border-primary px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/admission"
+                className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Sign Up
+              </Link>
+            </div>
           </div>
 
           <button
             onClick={() => setOpen(!open)}
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+            className="xl:hidden p-2 rounded-lg hover:bg-gray-100"
             aria-label="Toggle menu"
           >
             <svg
@@ -104,7 +112,7 @@ export default function Navbar() {
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-border bg-white">
+        <div className="xl:hidden border-t border-border bg-white">
           <div className="px-4 py-3 space-y-1">
             {navLinks.map((link) => (
               <Link
@@ -120,13 +128,22 @@ export default function Navbar() {
               <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-muted">Online Services</p>
               {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-blue-50 hover:text-primary" onClick={() => setOpen(false)}>{link.label}</Link>)}
             </div>
-            <Link
-              href="/admission"
-              className="block px-3 py-2 mt-2 bg-primary text-white text-sm font-semibold rounded-lg text-center"
-              onClick={() => setOpen(false)}
-            >
-              Apply Now
-            </Link>
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+              <Link
+                href="/student"
+                className="rounded-lg border border-primary px-3 py-2.5 text-center text-sm font-semibold text-primary"
+                onClick={() => setOpen(false)}
+              >
+                Log In
+              </Link>
+              <Link
+                href="/admission"
+                className="rounded-lg bg-primary px-3 py-2.5 text-center text-sm font-semibold text-white"
+                onClick={() => setOpen(false)}
+              >
+                Sign Up
+              </Link>
+            </div>
           </div>
         </div>
       )}
