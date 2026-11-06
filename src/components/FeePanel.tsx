@@ -35,6 +35,7 @@ export default function FeePanel({ studentId, applicationId, admin = false }: { 
   const [busy, setBusy] = useState(false);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loginMode, setLoginMode] = useState("student");
+  const [showPlanChoices, setShowPlanChoices] = useState(false);
   const [login, setLogin] = useState({ studentId: "", mobile: "", dob: "", applicationId: "", recoveryCode: "" });
   const query = new URLSearchParams(studentId ? { studentId: String(studentId) } : applicationId ? { applicationId: String(applicationId) } : {}).toString();
   const load = useCallback(() => fetch(`/api/fees?${query}`, { cache: "no-store" }).then(async response => {
@@ -93,27 +94,88 @@ export default function FeePanel({ studentId, applicationId, admin = false }: { 
       {admin && data.person.applicationId && <form className="space-y-3 rounded-xl border bg-white p-5" onSubmit={e => { e.preventDefault(); void run(async () => { const result = await feeRequest("/api/admin/payments/actions", { action: "reset_applicant_access", applicationId: data.person.applicationId, reason: recoveryReason }); setRecovery(result.recoveryCode); }); }}>
         <h3 className="font-bold">Issue / reset applicant payment recovery code</h3><label className="block text-sm">Identity verification and audit reason<input className={inputClass} required minLength={10} value={recoveryReason} onChange={e => setRecoveryReason(e.target.value)} /></label><button className={buttonClass} disabled={busy}>Issue private code</button>{recovery && <div><p className="text-sm">Share securely with the verified applicant. Existing sessions expire within 8 hours.</p><code className="block break-all bg-slate-100 p-3">{recovery}</code></div>}
       </form>}
-      {!data.configuration && !data.plan && <p className="rounded-lg bg-amber-50 p-4 text-amber-900">Accounts must configure this course’s fee and semester structure before payment is available.</p>}
-      {!data.plan?.locked && data.configuration && <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-6"><h3 className="text-lg font-bold">Pay full course fee</h3><dl className="my-4 space-y-2"><div>Original fee: {feeMoney(data.configuration.originalAmount)}</div><div>10% upfront discount: −{feeMoney(data.full?.discount || 0)}</div><div className="font-bold">Payable: {feeMoney(data.full?.payable || 0)}</div></dl>
-          <button className={buttonClass} disabled={busy || data.person.needsReview} onClick={() => void run(() => feeRequest("/api/fees/plan", { plan: "full", studentId, applicationId }))}>Choose full payment</button></div>
-        <div className="rounded-xl border bg-white p-6"><h3 className="text-lg font-bold">Semester-wise payment</h3><p className="my-4">{data.configuration.semesters} semesters · {feeMoney(data.configuration.originalAmount)} total · no discount</p><p className="mb-4 text-sm text-slate-600">Each semester has its own due date and checkout.</p>
-          <button className={buttonClass} disabled={busy} onClick={() => void run(() => feeRequest("/api/fees/plan", { plan: "semester", studentId, applicationId }))}>Choose semester plan</button></div>
-      </div>}
-      {data.plan && <>
-        <div className="rounded-xl border bg-white p-6"><p className="font-bold text-blue-800">{data.plan.status} · {data.plan.kind === "full" ? "Full payment" : "Semester-wise"}</p>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">{[["Original fee", data.plan.originalAmount], ["Discount", data.plan.discount], ["Adjustments", data.plan.payable - data.plan.originalAmount + data.plan.discount], ["Payable", data.plan.payable], ["Collected", data.plan.collected], ["Outstanding", data.plan.outstanding]].map(([label, amount]) => <div key={label}><dt className="text-sm text-slate-600">{label}</dt><dd className="font-semibold">{feeMoney(Number(amount))}</dd></div>)}</dl>
-          {data.plan.locked && <p className="mt-4 text-sm text-slate-600">The plan is locked once checkout starts. Accounts must review any changes to prevent duplicate collection.</p>}
-          {data.person.needsReview && !data.plan.legacyReviewed && <p className="mt-4 text-amber-800">Historical payment records await accounts review. Checkout is paused to avoid duplicate collection.</p>}
-          {!data.checkoutConfigured && !admin && <p className="mt-4 text-amber-800">Online checkout is not configured yet. Your application is saved.</p>}
+      {!data.configuration && !data.plan && <p className="rounded-lg bg-amber-50 p-4 text-amber-900">Accounts must configure an approved fee for this university and course before payment is available.</p>}
+      {data.configuration && (!data.plan || (showPlanChoices && !data.plan.locked)) && (
+        <div className="space-y-3">
+          <h3 className="text-xl font-bold text-slate-900">Choose how you want to pay</h3>
+          <p className="text-sm text-slate-600">No payment deadlines. You can pay any semester whenever you want.</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6">
+              <p className="text-sm font-semibold text-slate-600">Pay everything now · 10% off</p>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{feeMoney(data.full?.payable || 0)}</p>
+              <p className="mt-2 text-sm text-slate-600">Save {feeMoney(data.full?.discount || 0)} on the total fee.</p>
+              <button className={`${buttonClass} mt-5 w-full py-3`} disabled={busy || data.person.needsReview} onClick={() => void run(async () => {
+                await feeRequest("/api/fees/plan", { plan: "full", studentId, applicationId });
+                setShowPlanChoices(false);
+              })}>Choose full payment</button>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-6">
+              <p className="text-sm font-semibold text-slate-600">Pay semester by semester</p>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{feeMoney(data.configuration.originalAmount)}</p>
+              <p className="mt-2 text-sm text-slate-600">{data.configuration.semesters} separate payment options. Pay any semester in any order, at any time.</p>
+              <button className={`${buttonClass} mt-5 w-full py-3`} disabled={busy} onClick={() => void run(async () => {
+                await feeRequest("/api/fees/plan", { plan: "semester", studentId, applicationId });
+                setShowPlanChoices(false);
+              })}>Choose semester payments</button>
+            </div>
+          </div>
         </div>
-        <div className="overflow-x-auto rounded-xl border bg-white"><table className="min-w-full text-left text-sm"><caption className="p-4 text-left text-lg font-bold">Fee schedule</caption><thead className="bg-slate-50"><tr>{["Semester", "Due date", "Amount", "Paid", "Outstanding", "Status", "Action"].map(h => <th className="p-3" key={h}>{h}</th>)}</tr></thead><tbody>{data.plan.schedule.map((o, i) => <tr className="border-t" key={o.id}><td className="p-3">{o.semester || "Full course"}</td><td className="p-3">{o.dueDate}</td><td className="p-3">{feeMoney(o.amount)}</td><td className="p-3">{feeMoney(o.paid)}</td><td className="p-3">{feeMoney(o.outstanding)}</td><td className="p-3">{o.status}</td><td className="p-3">{!admin && o.payable && !data.plan!.schedule.slice(0,i).some(x => x.outstanding) && <button className={buttonClass} disabled={busy || !data.checkoutConfigured || (data.person.needsReview && !data.plan!.legacyReviewed)} onClick={() => void pay(o.id)}>Pay now</button>}</td></tr>)}</tbody></table></div>
-        <div className="rounded-xl border bg-white p-5"><h3 className="text-lg font-bold">Transaction history &amp; receipts</h3>{!data.plan.history.length && !data.plan.offline.length && <p className="mt-3 text-slate-600">No recorded payments yet.</p>}
-          {data.plan.history.map(t => <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-4"><div><p className="font-semibold">{feeMoney(t.amount)} · {t.status}{t.refunded > 0 && ` · refunded ${feeMoney(t.refunded)}`}</p><p className="text-xs text-slate-600">{t.razorpayPaymentId} · {t.method} · {new Date(t.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</p></div>{t.receiptId && <a className="font-semibold text-blue-700 underline" href={`/api/fees/receipts/${t.receiptId}`}>Download PDF receipt</a>}</div>)}
-          {data.plan.offline.map(t => <div key={t.id} className="border-b py-3"><strong>{feeMoney(t.amount)} · {t.legacy ? "Historical opening credit" : "Verified offline credit"}</strong><p className="text-sm text-slate-600">{t.receivedAt} · {t.reference}</p></div>)}
+      )}
+      {data.plan && (!showPlanChoices || data.plan.locked) && (
+        <div className="space-y-5">
+          <section className="rounded-2xl border bg-white p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">{data.plan.kind === "full" ? "One-time payment" : "Your semester payments"}</h3>
+                <p className="mt-1 text-sm text-slate-600">{data.plan.kind === "semester" ? "Pay any unpaid semester at any time. You do not need to pay Semester 1 before Semester 2." : "One payment with your 10% discount."}</p>
+              </div>
+              {!data.plan.locked && <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-blue-700" type="button" disabled={busy} onClick={() => setShowPlanChoices(true)}>Change payment option</button>}
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t pt-5 sm:grid-cols-3">
+              <div><p className="text-xs text-slate-500">Total to pay</p><p className="mt-1 text-lg font-bold">{feeMoney(data.plan.payable)}</p></div>
+              <div><p className="text-xs text-slate-500">Paid</p><p className="mt-1 text-lg font-bold text-green-700">{feeMoney(data.plan.collected)}</p></div>
+              <div><p className="text-xs text-slate-500">Remaining</p><p className="mt-1 text-lg font-bold">{feeMoney(data.plan.outstanding)}</p></div>
+            </div>
+            {data.plan.kind === "full" && data.plan.discount > 0 && <p className="mt-4 text-sm text-green-700">Includes a {feeMoney(data.plan.discount)} full-payment discount.</p>}
+            {data.plan.locked && <p className="mt-3 text-xs text-slate-500">Payment option locked after checkout begins to prevent duplicate charges.</p>}
+            {data.person.needsReview && !data.plan.legacyReviewed && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Accounts must review historical collections before a new payment can be made.</p>}
+            {!data.checkoutConfigured && !admin && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Online checkout is not configured yet. Your fee plan and application are saved.</p>}
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-lg font-bold text-slate-900">{data.plan.kind === "full" ? "Complete your payment" : "Select a semester to pay"}</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {data.plan.schedule.map(o => (
+                <div key={o.id} className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-bold text-slate-900">{o.semester === 0 ? "Full course" : `Semester ${o.semester}`}</p>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${o.outstanding <= 0 ? "bg-green-50 text-green-800" : "bg-slate-100 text-slate-700"}`}>{o.outstanding <= 0 ? "Paid" : "Unpaid"}</span>
+                  </div>
+                  <p className="mt-3 text-2xl font-bold">{feeMoney(o.outstanding > 0 ? o.outstanding : o.amount)}</p>
+                  {o.paid > 0 && <p className="mt-1 text-xs text-slate-600">{feeMoney(o.paid)} received · {feeMoney(o.outstanding)} remaining</p>}
+                  {o.outstanding <= 0 ? <p className="mt-4 text-sm font-medium text-green-700">Payment complete</p>
+                    : !admin && o.payable ? <button type="button" className={`${buttonClass} mt-4 w-full py-3`} disabled={busy || !data.checkoutConfigured || (data.person.needsReview && !data.plan!.legacyReviewed)} onClick={() => void pay(o.id)}>
+                        {data.checkoutConfigured ? `Pay ${feeMoney(o.outstanding)}` : "Checkout unavailable"}
+                      </button>
+                    : !admin && <p className="mt-4 text-sm text-amber-800">Payment confirmation or reconciliation is pending. Check payment status before retrying.</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+          {(data.plan.history.length > 0 || data.plan.offline.length > 0) && (
+            <details className="rounded-xl border bg-white p-5">
+              <summary className="cursor-pointer font-semibold">Payment history and receipts</summary>
+              <div className="mt-3">
+                {data.plan.history.map(t => <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
+                  <div><p className="font-semibold">{feeMoney(t.amount)} · {t.status}</p><p className="text-xs text-slate-600">{t.razorpayPaymentId} · {t.method}</p></div>
+                  {t.receiptId && <a className="text-sm font-semibold text-blue-700 underline" href={`/api/fees/receipts/${t.receiptId}`}>Download receipt</a>}
+                </div>)}
+                {data.plan.offline.map(t => <p className="border-t py-3 text-sm" key={t.id}>{feeMoney(t.amount)} · Recorded offline · {t.reference}</p>)}
+              </div>
+            </details>
+          )}
+          {admin && <AdminFeeActions data={data} busy={busy} run={run} />}
         </div>
-        {admin && <AdminFeeActions data={data} busy={busy} run={run} />}
-      </>}
+      )}
       <div className="flex flex-wrap gap-3"><button className={buttonClass} disabled={busy} onClick={() => void load()}>Refresh fee status</button>
         {!admin && <><button className={buttonClass} disabled={busy} onClick={() => void run(async () => {
           const orders = await feeRequest("/api/fees/pending");
@@ -126,12 +188,12 @@ export default function FeePanel({ studentId, applicationId, admin = false }: { 
   </section>;
 }
 function AdminFeeActions({ data, busy, run }: { data: Portal; busy: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ action: "offline", obligationId: "", amount: "", reference: "", reason: "", dueDate: "", receivedAt: "", legacy: false });
+  const [form, setForm] = useState({ action: "offline", obligationId: "", amount: "", reference: "", reason: "", receivedAt: "", legacy: false });
   return <form className="space-y-4 rounded-xl border border-blue-200 bg-white p-6" onSubmit={e => { e.preventDefault(); void run(() => feeRequest("/api/admin/payments/actions", { ...form, planId: data.plan!.id })); }}>
     <h3 className="text-lg font-bold">Audited accounts action</h3><p className="text-sm text-slate-600">Offline credits require actual bank/cash evidence. Historical opening credits affect balances and stay separate from new collections. Adjustments apply only to unpaid obligations without checkout orders.</p>
-    <div className="grid gap-4 sm:grid-cols-2"><label>Action<select className={inputClass} value={form.action} onChange={e => setForm({ ...form, action: e.target.value })}><option value="offline">Record verified offline / opening credit</option><option value="adjust">Amend unpaid semester fee / due date</option><option value="review_legacy">Complete historical review</option></select></label>
+    <div className="grid gap-4 sm:grid-cols-2"><label>Action<select className={inputClass} value={form.action} onChange={e => setForm({ ...form, action: e.target.value })}><option value="offline">Record verified offline / opening credit</option><option value="adjust">Amend unpaid semester amount</option><option value="review_legacy">Complete historical review</option></select></label>
       {form.action !== "review_legacy" && <><label>Obligation<select className={inputClass} required value={form.obligationId} onChange={e => setForm({ ...form, obligationId: e.target.value })}><option value="">Select semester</option>{data.plan!.schedule.map(o => <option value={o.id} key={o.id}>{o.semester || "Full course"} · {feeMoney(o.outstanding)} outstanding</option>)}</select></label><label>Amount (INR)<input className={inputClass} required type="number" step="0.01" min="1" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></label>
-        {form.action === "offline" ? <><label>Bank / cash voucher / historical reference<input className={inputClass} required minLength={5} value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} /></label><label>Actual receipt date<input className={inputClass} required type="date" value={form.receivedAt} onChange={e => setForm({ ...form, receivedAt: e.target.value })} /></label><label className="flex gap-2"><input type="checkbox" checked={form.legacy} onChange={e => setForm({ ...form, legacy: e.target.checked })} />Historical opening credit (already collected)</label></> : <label>New due date<input className={inputClass} required type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></label>}</>}
+        {form.action === "offline" ? <><label>Bank / cash voucher / historical reference<input className={inputClass} required minLength={5} value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} /></label><label>Actual receipt date<input className={inputClass} required type="date" value={form.receivedAt} onChange={e => setForm({ ...form, receivedAt: e.target.value })} /></label><label className="flex gap-2"><input type="checkbox" checked={form.legacy} onChange={e => setForm({ ...form, legacy: e.target.checked })} />Historical opening credit (already collected)</label></> : null}</>}
       <label>Reason and evidence (audit log)<textarea className={inputClass} required minLength={10} value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} /></label></div>
     <button className={buttonClass} disabled={busy}>Save audited action</button>
   </form>;

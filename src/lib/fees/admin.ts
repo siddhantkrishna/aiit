@@ -25,12 +25,12 @@ export async function configure(adminId: number, body: Record<string, unknown>) 
   const originalAmount = paise(body.originalFee);
   const semesters = Number(body.semesters);
   if (!Array.isArray(body.schedule)) throw new FeeError("Configure the semester schedule.");
-  const schedule = body.schedule.map((o, i) => ({ semester: i + 1, amount: paise(o.amount), dueDate: o.dueDate }));
+  const schedule = body.schedule.map((o, i) => ({ semester: i + 1, amount: paise(o.amount) }));
   validateSchedule(originalAmount, semesters, schedule);
   const reason = String(body.reason || "").trim();
-  if (reason.length < 10 || !validDate(body.effectiveFrom)) throw new FeeError("Provide an effective date and a reason of at least 10 characters.");
-  // Immutable versions: existing plans retain their contracted fee and dates.
-  const [configuration] = await db.insert(feeConfigurations).values({ courseId, universityId, originalAmount, semesters, schedule, effectiveFrom: body.effectiveFrom, reason, createdBy: adminId }).returning();
+  if (reason.length < 10) throw new FeeError("Provide an approval reason of at least 10 characters.");
+  // Immutable versions: existing plans retain their contracted fee and payment amounts.
+  const [configuration] = await db.insert(feeConfigurations).values({ courseId, universityId, originalAmount, semesters, schedule, effectiveFrom: indiaDate(), reason, createdBy: adminId }).returning();
   return configuration;
 }
 export async function adminAction(adminId: number, body: Record<string, unknown>) {
@@ -62,12 +62,11 @@ export async function adminAction(adminId: number, body: Record<string, unknown>
       } else {
         if (amount < item.paid || item.paid > 0) throw new FeeError("Adjust only an unpaid obligation; preserve recorded credits.");
         if (plan.kind === "full") throw new FeeError("The full-payment discount contract cannot be adjusted. Accounts must resolve it separately.");
-        if (!validDate(body.dueDate)) throw new FeeError("A valid due date is required.");
-        await tx.update(feeObligations).set({ amount, dueDate: body.dueDate }).where(eq(feeObligations.id, item.id));
+        await tx.update(feeObligations).set({ amount }).where(eq(feeObligations.id, item.id));
       }
     } else throw new FeeError("Unknown accounts action.");
     await tx.insert(feeAudit).values({ planId, adminId, action: String(body.action), reason,
-      details: { before: { payable: summary.payable, collected: summary.collected, schedule: summary.schedule }, obligationId: body.obligationId, amount: body.amount, reference: body.reference, receivedAt: body.receivedAt, dueDate: body.dueDate, legacy: body.legacy } });
+      details: { before: { payable: summary.payable, collected: summary.collected, schedule: summary.schedule }, obligationId: body.obligationId, amount: body.amount, reference: body.reference, receivedAt: body.receivedAt, legacy: body.legacy } });
     return { success: true };
   });
 }
