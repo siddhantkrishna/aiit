@@ -71,12 +71,6 @@ export default function Navbar() {
               >
                 Log In
               </Link>
-              <Link
-                href="/admission"
-                className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                Sign Up
-              </Link>
             </div>
           </div>
 
@@ -128,20 +122,13 @@ export default function Navbar() {
               <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-muted">Online Services</p>
               {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-blue-50 hover:text-primary" onClick={() => setOpen(false)}>{link.label}</Link>)}
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+            <div className="mt-3 border-t border-border pt-3">
               <Link
                 href="/student"
-                className="rounded-lg border border-primary px-3 py-2.5 text-center text-sm font-semibold text-primary"
+                className="block rounded-lg border border-primary px-3 py-2.5 text-center text-sm font-semibold text-primary"
                 onClick={() => setOpen(false)}
               >
                 Log In
-              </Link>
-              <Link
-                href="/admission"
-                className="rounded-lg bg-primary px-3 py-2.5 text-center text-sm font-semibold text-white"
-                onClick={() => setOpen(false)}
-              >
-                Sign Up
               </Link>
             </div>
           </div>
