@@ -85,7 +85,7 @@ export default function StudentDashboard(){
   try{const res=await fetch("/api/student/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(login)});const json=await res.json();if(!res.ok)throw new Error(json.error||"Sign-in failed");setLogin({mobile:"",dob:""});await load();}
   catch(e){setError(e instanceof Error?e.message:"Sign-in failed");}finally{setLoginBusy(false);}
  }
- async function signOut(){await fetch("/api/student/logout",{method:"POST"});setData(null);setTab("overview");setLogin({studentId:"",mobile:"",dob:""});}
+ async function signOut(){await fetch("/api/student/logout",{method:"POST"});setData(null);setTab("overview");setLogin({mobile:"",dob:""});}
  async function submitRequest(e:React.FormEvent){e.preventDefault();setServiceBusy(true);setNotice("");try{
   const r=await fetch("/api/student/requests",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(service)});
   const body=await r.json();if(!r.ok)throw new Error(body.error||"Request failed");
