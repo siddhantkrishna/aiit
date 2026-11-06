@@ -2135,7 +2135,7 @@ export type FeeSchedule = Array<{ semester: number; amount: number; dueDate: str
 export const feeConfigurations = pgTable("fee_configurations", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").notNull().references(() => courses.id),
-  universityId: integer("university_id").references(() => universities.id),
+  universityId: integer("university_id").notNull().references(() => universities.id),
   originalAmount: integer("original_amount").notNull(),
   semesters: integer("semesters").notNull(),
   schedule: jsonb("schedule").$type<FeeSchedule>().notNull(),

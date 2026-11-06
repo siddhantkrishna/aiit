@@ -145,12 +145,11 @@ export async function POST(req: NextRequest) {
     const courseId = Number(body.courseId);
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId));
     if (!course?.enabled) throw new FeeError("Selected course is not available.");
-    const universityId = text("universityId") ? Number(body.universityId) : course.universityId;
-    if (universityId) {
-      const [university] = await db.select({ id: universities.id }).from(universities).where(eq(universities.id, universityId));
-      if (!university) throw new FeeError("Selected university is not available.");
-      if (course.universityId && course.universityId !== universityId) throw new FeeError("Select the university associated with this course.");
-    }
+    const universityId = Number(text("universityId"));
+    if (!Number.isSafeInteger(universityId) || universityId < 1) throw new FeeError("Choose a university for this course.");
+    const [university] = await db.select({ id: universities.id, enabled: universities.enabled }).from(universities).where(eq(universities.id, universityId));
+    if (!university?.enabled) throw new FeeError("Selected university is not available.");
+    if (course.universityId && course.universityId !== universityId) throw new FeeError("This course is not available for the selected university.");
     for (const key of ["firstName", "fatherName", "motherName", "gender", "address", "city", "state", "pinCode"]) {
       if (!text(key)) throw new FeeError("Please complete all required fields.");
     }

@@ -7,8 +7,8 @@ import { owner, findPlan, planSummary } from "./service";
 
 export async function configurationOptions() {
   const [courseRows, universityRows, configurations] = await Promise.all([
-    db.select({ id: courses.id, name: courses.name, fee: courses.aiitFee, semesters: courses.semesters, universityId: courses.universityId }).from(courses),
-    db.select({ id: universities.id, name: universities.name }).from(universities),
+    db.select({ id: courses.id, name: courses.name, fee: courses.aiitFee, semesters: courses.semesters, universityId: courses.universityId, enabled: courses.enabled }).from(courses),
+    db.select({ id: universities.id, name: universities.name, enabled: universities.enabled }).from(universities),
     db.select().from(feeConfigurations).orderBy(desc(feeConfigurations.id)),
   ]);
   return { courses: courseRows, universities: universityRows, configurations };
@@ -16,12 +16,12 @@ export async function configurationOptions() {
 export async function configure(adminId: number, body: Record<string, unknown>) {
   const courseId = Number(body.courseId);
   const [course] = await db.select().from(courses).where(eq(courses.id, courseId));
-  if (!course) throw new FeeError("Select an existing course.");
-  const universityId = body.universityId ? Number(body.universityId) : null;
-  if (universityId) {
-    const [university] = await db.select({ id: universities.id }).from(universities).where(eq(universities.id, universityId));
-    if (!university) throw new FeeError("Select an existing university.");
-  }
+  if (!course?.enabled) throw new FeeError("Select an active course.");
+  const universityId = Number(body.universityId);
+  if (!Number.isSafeInteger(universityId) || universityId < 1) throw new FeeError("Select a specific university before entering the fee.");
+  const [university] = await db.select({ id: universities.id, enabled: universities.enabled }).from(universities).where(eq(universities.id, universityId));
+  if (!university?.enabled) throw new FeeError("Select an active university.");
+  if (course.universityId && course.universityId !== universityId) throw new FeeError("This course belongs to a different university. Choose its associated university.");
   const originalAmount = paise(body.originalFee);
   const semesters = Number(body.semesters);
   if (!Array.isArray(body.schedule)) throw new FeeError("Configure the semester schedule.");
@@ -102,16 +102,19 @@ export async function resetApplicantAccess(adminId: number, applicationId: numbe
   return { recoveryCode };
 }
 
-export async function assignStudentCourse(adminId: number, studentId: number, courseId: number, reason: string) {
+export async function assignStudentCourse(adminId: number, studentId: number, courseId: number, universityId: number, reason: string) {
   if (reason.trim().length < 10) throw new FeeError("Record the enrollment evidence for this course assignment.");
   return db.transaction(async tx => {
     const [student] = await tx.select().from(students).where(eq(students.id,studentId)).for("update");
     const [course] = await tx.select().from(courses).where(eq(courses.id,courseId));
-    if (!student || !course) throw new FeeError("Student or course not found.",404);
+    if (!student || !course?.enabled) throw new FeeError("Student or active course not found.",404);
+    if (!Number.isSafeInteger(universityId) || universityId < 1) throw new FeeError("Select the student's university.");
+    const [university] = await tx.select({id:universities.id,enabled:universities.enabled}).from(universities).where(eq(universities.id,universityId));
+    if (!university?.enabled || (course.universityId && course.universityId !== universityId)) throw new FeeError("This university cannot be assigned to the selected course.");
     const plan = await tx.select({id:feePlans.id}).from(feePlans).where(eq(feePlans.studentId,studentId));
     if (student.applicationId || student.courseId || plan.length) throw new FeeError("An enrollment or fee plan already exists; course reassignment requires admissions review.",409);
-    await tx.update(students).set({courseId,universityId:course.universityId,programName:course.name,updatedAt:new Date()}).where(eq(students.id,studentId));
-    await tx.insert(feeAudit).values({adminId,action:"assign_student_course",reason,details:{studentId,courseId}});
+    await tx.update(students).set({courseId,universityId,programName:course.name,updatedAt:new Date()}).where(eq(students.id,studentId));
+    await tx.insert(feeAudit).values({adminId,action:"assign_student_course",reason,details:{studentId,courseId,universityId}});
     return {success:true};
   });
 }

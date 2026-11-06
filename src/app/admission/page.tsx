@@ -13,6 +13,7 @@ interface Course {
   studyMode: string;
   category: string;
   enabled: boolean;
+  universityId: number | null;
 }
 
 interface University {
@@ -58,6 +59,9 @@ const indianStates = [
 export default function AdmissionPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
+  const [selectedUniversity, setSelectedUniversity] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedFee, setSelectedFee] = useState<{ originalAmount: number; semesters: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [applicationId, setApplicationId] = useState("");
@@ -89,6 +93,19 @@ export default function AdmissionPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!selectedUniversity || !selectedCourse) return;
+    const controller = new AbortController();
+    fetch(`/api/university-course-fees?universityId=${selectedUniversity}&courseId=${selectedCourse}`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error("Fee quote unavailable");
+        return response.json();
+      })
+      .then(data => setSelectedFee(data.available ? { originalAmount: data.originalAmount, semesters: data.semesters } : null))
+      .catch(() => { if (!controller.signal.aborted) setSelectedFee(null); });
+    return () => controller.abort();
+  }, [selectedUniversity, selectedCourse]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -212,44 +229,32 @@ export default function AdmissionPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">
-                      Select Course <span className="text-red-500">*</span>
+                      University <span className="text-red-500">*</span>
                     </label>
-
-                    <select
-                      name="courseId"
-                      required
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    >
-                      <option value="">Choose a course</option>
-
-                      {courses.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} — {c.fullName}
-                        </option>
-                      ))}
+                    <select name="universityId" required value={selectedUniversity}
+                      onChange={e => { setSelectedUniversity(e.target.value); setSelectedCourse(""); setSelectedFee(null); }}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+                      <option value="">Choose university first</option>
+                      {universities.map(u => <option key={u.id} value={u.id}>{u.name} ({u.shortName})</option>)}
                     </select>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">
-                      University
+                      Select Course <span className="text-red-500">*</span>
                     </label>
-
-                    <select
-                      name="universityId"
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    >
-                      <option value="">
-                        Select university (optional)
-                      </option>
-
-                      {universities.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name} ({u.shortName})
-                        </option>
-                      ))}
+                    <select name="courseId" required disabled={!selectedUniversity} value={selectedCourse}
+                      onChange={e => { setSelectedCourse(e.target.value); setSelectedFee(null); }}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:opacity-60">
+                      <option value="">{selectedUniversity ? "Choose course" : "Select university first"}</option>
+                      {courses.filter(c => !c.universityId || c.universityId === Number(selectedUniversity)).map(c =>
+                        <option key={c.id} value={c.id}>{c.name} — {c.fullName}</option>)}
                     </select>
                   </div>
+                  {selectedCourse && <p aria-live="polite" className="col-span-full text-sm text-slate-600">
+                    {selectedFee
+                      ? `Approved fee for this university and course: ₹${(selectedFee.originalAmount / 100).toLocaleString("en-IN")} · ${selectedFee.semesters} installment(s). Full upfront payment is eligible for a 10% discount.`
+                      : "The fee for this university and course has not yet been configured. Accounts must approve its amount before checkout."}
+                  </p>}
 
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">
