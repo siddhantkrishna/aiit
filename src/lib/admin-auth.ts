@@ -16,6 +16,7 @@ export function requireAdmin(req: NextRequest) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (typeof decoded === "string" || !Number.isSafeInteger(decoded.id) || !decoded.email || decoded.role) return null;
     return decoded as JwtPayload;
   } catch {
     return null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 type Service = {
   id: number;
@@ -94,9 +94,9 @@ export default function ServicesPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadServices();
-  }, [status]);
+  }); }, [status]);
 
   const filteredServices = services.filter((service) => {
     const query = search.trim().toLowerCase();

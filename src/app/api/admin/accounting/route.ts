@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/db";
 import { accountingTransactions } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) return NextResponse.json({error:"Unauthorized"},{status:401});
     const { searchParams } = new URL(req.url);
 
     const search = searchParams.get("search")?.trim() || "";
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
       .from(accountingTransactions)
       .where(
         conditions.length
-          ? or(...conditions)
+          ? and(...conditions)
           : undefined,
       )
       .orderBy(
@@ -90,6 +92,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) return NextResponse.json({error:"Unauthorized"},{status:401});
     const body = await req.json();
 
     const amount = Number(body.amount);

@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 interface Course {
   id: number;
@@ -62,10 +63,12 @@ export default function AdmissionPage() {
   const [applicationId, setApplicationId] = useState("");
   const [error, setError] = useState("");
 
-  const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
-  const [paymentPreview, setPaymentPreview] = useState("");
-  const [paymentUploading, setPaymentUploading] = useState(false);
-  const [paymentUploaded, setPaymentUploaded] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [warning, setWarning] = useState("");
+  const [submissionKey] = useState(() => typeof window === "undefined" ? "" : (sessionStorage.getItem("aiit-admission-key") || (() => {
+    const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
+    sessionStorage.setItem("aiit-admission-key", key); return key;
+  })()));
 
   useEffect(() => {
     fetch("/api/courses")
@@ -87,50 +90,6 @@ export default function AdmissionPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (paymentPreview) {
-        URL.revokeObjectURL(paymentPreview);
-      }
-    };
-  }, [paymentPreview]);
-
-  function handlePaymentScreenshotChange(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    setError("");
-
-    const file = e.target.files?.[0];
-
-    if (!file) {
-      setPaymentScreenshot(null);
-      setPaymentPreview("");
-      return;
-    }
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-
-    if (!allowedTypes.includes(file.type)) {
-      setError("Payment screenshot must be JPG, PNG, or WebP.");
-      e.target.value = "";
-      setPaymentScreenshot(null);
-      setPaymentPreview("");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Payment screenshot must be less than 5MB.");
-      e.target.value = "";
-      setPaymentScreenshot(null);
-      setPaymentPreview("");
-      return;
-    }
-
-    setPaymentScreenshot(file);
-    setPaymentPreview(URL.createObjectURL(file));
-    setPaymentUploaded(false);
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -139,6 +98,7 @@ export default function AdmissionPage() {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    formData.set("submissionKey", submissionKey);
 
     if (!formData.get("declaration")) {
       setError("Please accept the declaration to submit.");
@@ -157,6 +117,9 @@ export default function AdmissionPage() {
       if (data.success) {
         setApplicationId(data.applicationId);
         setSubmitted(true);
+        setRecoveryCode(data.recoveryCode);
+        setWarning(data.warning || "");
+        sessionStorage.removeItem("aiit-admission-key");
         window.scrollTo(0, 0);
       } else {
         setError(
@@ -170,215 +133,15 @@ export default function AdmissionPage() {
     setLoading(false);
   }
 
-  async function handlePaymentUpload() {
-    if (!paymentScreenshot || !applicationId) {
-      setError("Please select your successful payment screenshot.");
-      return;
-    }
-
-    setPaymentUploading(true);
-    setError("");
-
-    try {
-      const formData = new FormData();
-
-      formData.append("applicationId", applicationId);
-      formData.append("paymentScreenshot", paymentScreenshot);
-
-      const res = await fetch("/api/applications", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        setPaymentUploaded(true);
-        setError("");
-      } else {
-        setError(
-          data.error ||
-            "Failed to upload payment screenshot. Please try again."
-        );
-      }
-    } catch {
-      setError("Network error. Please try again.");
-    }
-
-    setPaymentUploading(false);
-  }
-
-  if (submitted) {
-    return (
-      <>
-        <Navbar />
-
-        <main className="min-h-screen bg-background">
-          <div className="max-w-3xl mx-auto px-4 py-12">
-            <div className="bg-white rounded-2xl border border-border p-8 md:p-12 text-center">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">✓</span>
-              </div>
-
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                Application Submitted Successfully!
-              </h1>
-
-              <p className="text-muted mb-6">
-                Your admission application has been received and is being
-                reviewed.
-              </p>
-
-              <div className="bg-background rounded-xl border border-border p-6 mb-8">
-                <p className="text-sm text-muted mb-1">
-                  Your Application ID
-                </p>
-
-                <p className="text-2xl font-bold text-primary">
-                  {applicationId}
-                </p>
-
-                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <span className="text-sm font-medium text-yellow-800">
-                    Pending Verification
-                  </span>
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-8">
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  Complete Your Payment
-                </h2>
-
-                <p className="text-sm text-muted max-w-xl mx-auto mb-6">
-                  Scan the QR code below using any UPI app and make your
-                  payment. You may pay any amount you wish.
-                </p>
-
-                <div className="flex justify-center mb-6">
-                  <div className="bg-white border border-border rounded-2xl p-4 shadow-sm">
-                    <Image
-                      src="/images/aiit-qr.jpeg"
-                      alt="AIIT payment QR code"
-                      width={320}
-                      height={320}
-                      className="w-[260px] h-[260px] sm:w-[320px] sm:h-[320px] object-contain"
-                    />
-                  </div>
-                </div>
-
-                <div className="max-w-xl mx-auto text-left">
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-                    <p className="text-sm font-medium text-blue-900 mb-1">
-                      After payment
-                    </p>
-
-                    <p className="text-sm text-blue-800">
-                      Upload a screenshot showing your successful transaction.
-                      Your payment will be manually verified by AIIT.
-                    </p>
-                  </div>
-
-                  {paymentUploaded ? (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-                      <div className="text-green-700 font-semibold mb-1">
-                        Payment Screenshot Uploaded
-                      </div>
-
-                      <p className="text-sm text-green-700">
-                        Your payment screenshot has been received and will be
-                        manually verified.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Payment Screenshot{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-
-                      <div className="border-2 border-dashed border-border rounded-xl p-5">
-                        <input
-                          type="file"
-                          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                          onChange={handlePaymentScreenshotChange}
-                          className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20"
-                        />
-
-                        <p className="text-xs text-muted mt-2">
-                          JPG, PNG or WebP · Maximum 5MB
-                        </p>
-
-                        {paymentPreview && (
-                          <div className="mt-5">
-                            <p className="text-sm font-medium text-green-700 mb-3">
-                              Screenshot selected
-                            </p>
-
-                            <div className="border border-border rounded-xl p-3 bg-background">
-                              <Image
-                                src={paymentPreview}
-                                alt="Payment screenshot preview"
-                                width={600}
-                                height={800}
-                                className="max-h-[500px] w-auto max-w-full mx-auto rounded-lg object-contain"
-                                unoptimized
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={handlePaymentUpload}
-                          disabled={paymentUploading || !paymentScreenshot}
-                          className="w-full mt-5 px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {paymentUploading
-                            ? "Uploading..."
-                            : "Upload Payment Screenshot"}
-                        </button>
-                      </div>
-
-                      <p className="text-xs text-muted mt-3">
-                        Payment verification is done manually using the
-                        uploaded transaction screenshot.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-border">
-                <p className="text-sm text-muted mb-6">
-                  Please save your Application ID. You can use it to check
-                  your application status.
-                </p>
-
-                <div className="flex flex-wrap gap-3 justify-center">
-                  <a
-                    href="/status"
-                    className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
-                  >
-                    Check Status
-                  </a>
-
-                  <a
-                    href="/"
-                    className="px-6 py-2.5 border border-border text-foreground font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Back to Home
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <Footer />
-      </>
-    );
-  }
+  if (submitted) return <><Navbar /><main className="min-h-screen bg-slate-50 px-4 py-16"><div className="mx-auto max-w-2xl space-y-6 rounded-2xl border bg-white p-8">
+    <h1 className="text-3xl font-bold text-slate-900">Application saved</h1>
+    <p>Application ID: <strong>{applicationId}</strong></p>
+    <p className="rounded-lg bg-amber-50 p-4 text-amber-900">Payment pending. Your application remains saved if checkout fails or closes.</p>
+    <div><p className="mb-2 font-semibold">Save your private payment recovery code</p><code className="block break-all rounded-lg bg-slate-100 p-3 text-sm">{recoveryCode}</code><p className="mt-2 text-sm text-slate-600">Use this code with your Application ID to resume payment later. Keep it private.</p></div>
+    {warning && <p role="alert" className="text-amber-800">{warning}</p>}
+    <Link href="/online-fee-payment" className="inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white">Choose payment plan →</Link>
+    <p className="text-sm text-slate-600">You can also return to My Fees &amp; Payments from the website menu.</p>
+  </div></main><Footer /></>;
 
   return (
     <>

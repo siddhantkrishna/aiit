@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 type Lead = {
   id: number;
@@ -89,9 +89,9 @@ export default function LeadsPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadLeads();
-  }, [status]);
+  }); }, [status]);
 
   const filteredLeads = useMemo(() => {
     const query = search.trim().toLowerCase();

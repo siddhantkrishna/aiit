@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 type Task = {
   id: number;
@@ -112,9 +112,9 @@ export default function TasksPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadTasks();
-  }, [status, priority]);
+  }); }, [status, priority]);
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();

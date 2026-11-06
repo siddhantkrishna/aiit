@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 type Campaign = {
   id: number;
@@ -93,9 +93,9 @@ export default function MarketingPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadCampaigns();
-  }, [status]);
+  }); }, [status]);
 
   const filteredCampaigns = useMemo(() => {
     const query = search.trim().toLowerCase();

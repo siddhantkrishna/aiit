@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 type Question = {
   id: string;
@@ -51,10 +51,10 @@ export default function AdminOnlineExamsPage() {
     setRows(Array.isArray(data) ? data : []);
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Failed to load exams."))
       .finally(() => setLoading(false));
-  }, []);
+  }); }, []);
 
   function updateQuestion(id: string, patch: Partial<Question>) {
     setQuestions((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 interface OnlineClass { id: number; title: string; description: string | null; instructor: string | null; scheduledAt: string; durationMinutes: number | null; meetingUrl: string | null; recordingUrl: string | null; status: string; enabled: boolean; }
 
@@ -19,7 +19,7 @@ export default function AdminOnlineClassesPage() {
     setItems(Array.isArray(data) ? data : []);
   }
 
-  useEffect(() => { load().catch((e) => setError(e.message)); }, []);
+  useEffect(() => { startTransition(() => { load().catch((e) => setError(e.message)); }); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

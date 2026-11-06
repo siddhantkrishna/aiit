@@ -18,7 +18,7 @@ const onlineServiceLinks = [
   { href: "/online-classes", label: "Online Classes" },
   { href: "/online-inquiry", label: "Online Inquiry" },
   { href: "/online-result", label: "Online Result" },
-  { href: "/online-fee-payment", label: "Online Fee Payment" },
+  { href: "/online-fee-payment", label: "My Fees & Payments" },
   { href: "/online-exams", label: "Online Exam" },
 ];
 

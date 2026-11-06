@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 type Application = {
   id: number;
@@ -86,9 +86,9 @@ export default function ApplicationsPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadApplications();
-  }, []);
+  }); }, []);
 
   const filteredApplications = useMemo(() => {
     const query = search.trim().toLowerCase();

@@ -2,7 +2,7 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 interface OnlineClass {
   id: number;
@@ -47,7 +47,7 @@ export default function OnlineClassesPage() {
   }
 
   useEffect(() => {
-    load();
+    startTransition(() => { void load(); });
     const timer = window.setInterval(load, 60_000);
     return () => window.clearInterval(timer);
   }, []);

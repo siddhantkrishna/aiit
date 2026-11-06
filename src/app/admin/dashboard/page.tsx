@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import {
   FileText,
   Clock3,
@@ -81,9 +81,9 @@ export default function AdminDashboardPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadStats();
-  }, []);
+  }); }, []);
 
   return (
     <div className="space-y-8">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 type Data = {
@@ -49,7 +49,7 @@ export default function VacancyApplicationDetailPage() {
     }
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { startTransition(() => { void load(); }); }, [load]);
 
   async function update(status: string) {
     setSaving(true);

@@ -1,5 +1,8 @@
 import {
   pgTable,
+  check,
+  index,
+  uniqueIndex,
   text,
   varchar,
   integer,
@@ -425,7 +428,7 @@ export const students = pgTable("students", {
     .unique(),
 
   leadId: bigint("lead_id", { mode: "number" }),
-  applicationId: integer("application_id"),
+  applicationId: varchar("application_id", { length: 50 }).references(() => applications.applicationId),
 
   centreId: integer("centre_id"),
 
@@ -511,7 +514,7 @@ export const students = pgTable("students", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [uniqueIndex("students_application_unique").on(t.applicationId).where(sql`${t.applicationId} IS NOT NULL`)]);
 
 /* =========================================================
    STUDENT DOCUMENTS
@@ -2115,3 +2118,115 @@ export const studentResults = pgTable("student_results", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+/* Verified fee ledger. Legacy payments and student balance columns remain historical. */
+export type FeeSchedule = Array<{ semester: number; amount: number; dueDate: string }>;
+export const feeConfigurations = pgTable("fee_configurations", {
+  id: serial("id").primaryKey(),
+  courseId: integer("course_id").notNull().references(() => courses.id),
+  universityId: integer("university_id").references(() => universities.id),
+  originalAmount: integer("original_amount").notNull(),
+  semesters: integer("semesters").notNull(),
+  schedule: jsonb("schedule").$type<FeeSchedule>().notNull(),
+  effectiveFrom: date("effective_from").notNull(),
+  createdBy: integer("created_by").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("fee_config_course_idx").on(t.courseId, t.effectiveFrom), check("fee_config_schedule", sql`public.fee_schedule_valid(${t.originalAmount}, ${t.semesters}, ${t.schedule})`), check("fee_config_amount", sql`${t.originalAmount} > 0 AND ${t.originalAmount} <= 1000000000 AND ${t.semesters} BETWEEN 1 AND 24`)]);
+
+export const feeAccess = pgTable("fee_access", {
+  applicationId: integer("application_id").primaryKey().references(() => applications.id),
+  recoveryHash: text("recovery_hash").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const feePlans = pgTable("fee_plans", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").unique().references(() => applications.id),
+  studentId: bigint("student_id", { mode: "number" }).unique().references(() => students.id),
+  courseId: integer("course_id").notNull().references(() => courses.id),
+  configurationId: integer("configuration_id").notNull().references(() => feeConfigurations.id),
+  legacyReviewed: boolean("legacy_reviewed").default(false).notNull(),
+  kind: text("kind").$type<"full" | "semester">().notNull(),
+  originalAmount: integer("original_amount").notNull(),
+  discount: integer("discount").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [check("fee_plan_owner", sql`${t.applicationId} IS NOT NULL OR ${t.studentId} IS NOT NULL`), check("fee_plan_kind", sql`${t.kind} IN ('full','semester')`), check("fee_plan_money", sql`${t.originalAmount} > 0 AND ${t.discount} BETWEEN 0 AND ${t.originalAmount}`)]);
+
+export const feeObligations = pgTable("fee_obligations", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull().references(() => feePlans.id),
+  semester: integer("semester").notNull(),
+  amount: integer("amount").notNull(),
+  dueDate: date("due_date").notNull(),
+}, (t) => [uniqueIndex("fee_obligation_semester_idx").on(t.planId, t.semester), check("fee_obligation_money", sql`${t.amount} > 0 AND ${t.amount} <= 1000000000 AND ${t.semester} BETWEEN 0 AND 24`)]);
+
+export const feeOrders = pgTable("fee_orders", {
+  id: text("id").primaryKey(),
+  obligationId: integer("obligation_id").notNull().references(() => feeObligations.id),
+  razorpayOrderId: text("razorpay_order_id").unique(),
+  keyId: text("key_id").notNull(),
+  amount: integer("amount").notNull(),
+  currency: text("currency").default("INR").notNull(),
+  status: text("status").default("creating").notNull(),
+  reconciledAt: timestamp("reconciled_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("fee_active_obligation_idx").on(t.obligationId).where(sql`${t.status} <> 'paid'`), index("fee_order_obligation_idx").on(t.obligationId), check("fee_order_money", sql`${t.amount} > 0 AND ${t.currency} = 'INR'`)]);
+
+export const feeTransactions = pgTable("fee_transactions", {
+  id: serial("id").primaryKey(),
+  orderId: text("order_id").notNull().references(() => feeOrders.id),
+  razorpayPaymentId: text("razorpay_payment_id").notNull().unique(),
+  amount: integer("amount").notNull(),
+  refunded: integer("refunded").default(0).notNull(),
+  gatewayFee: integer("gateway_fee"),
+  gatewayTax: integer("gateway_tax"),
+  currency: text("currency").default("INR").notNull(),
+  status: text("status").notNull(),
+  method: text("method"),
+  failureCode: text("failure_code"),
+  refundStatus: jsonb("refund_status").$type<Array<{ id: string; status: string; amount: number }>>(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("fee_transaction_order_idx").on(t.orderId), uniqueIndex("fee_capture_order_idx").on(t.orderId).where(sql`${t.capturedAt} IS NOT NULL`), index("fee_transaction_date_idx").on(t.capturedAt), check("fee_transaction_money", sql`${t.amount} > 0 AND ${t.refunded} BETWEEN 0 AND ${t.amount} AND ${t.currency} = 'INR'`), check("fee_transaction_status", sql`${t.status} IN ('created','authorized','captured','failed','refunded')`)]);
+
+export const feeReceipts = pgTable("fee_receipts", {
+  id: text("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull().unique().references(() => feeTransactions.id),
+  snapshot: jsonb("snapshot").$type<Record<string, string | number>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const feeWebhooks = pgTable("fee_webhooks", {
+  eventId: text("event_id").primaryKey(),
+  bodyHash: text("body_hash").notNull().unique(),
+  event: text("event").notNull(),
+  orderId: text("order_id"),
+  status: text("status").notNull(),
+  attempts: integer("attempts").default(1).notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("fee_webhook_order_idx").on(t.orderId)]);
+
+export const feeAudit = pgTable("fee_audit", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").references(() => feePlans.id),
+  adminId: integer("admin_id").notNull(),
+  action: text("action").notNull(),
+  reason: text("reason").notNull(),
+  details: jsonb("details").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("fee_audit_plan_idx").on(t.planId)]);
+
+export const feeOfflineCredits = pgTable("fee_offline_credits", {
+  id: serial("id").primaryKey(),
+  obligationId: integer("obligation_id").notNull().references(() => feeObligations.id),
+  amount: integer("amount").notNull(),
+  reference: text("reference").notNull().unique(),
+  reason: text("reason").notNull(),
+  adminId: integer("admin_id").notNull(),
+  receivedAt: date("received_at").notNull(),
+  legacy: boolean("legacy").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("fee_offline_obligation_idx").on(t.obligationId), check("fee_offline_money", sql`${t.amount} > 0`)]);

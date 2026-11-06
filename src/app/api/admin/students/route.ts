@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { students } from "@/db/schema";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { students, applications, courses, feePlans } from "@/db/schema";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { feeReport } from "@/lib/fees/report";
+import { requireAdmin } from "@/lib/admin-auth";
 import { randomUUID } from "node:crypto";
 
 export async function GET(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) return NextResponse.json({error:"Unauthorized"},{status:401});
     const { searchParams } = new URL(req.url);
 
     const search = searchParams.get("search")?.trim() || "";
@@ -40,7 +43,14 @@ export async function GET(req: NextRequest) {
       )
       .orderBy(desc(students.createdAt));
 
-    return NextResponse.json(rows);
+    const ledger = await feeReport();
+    const result = rows.map(student => {
+      const balances = ledger.balances.filter(b => b.studentRef === student.studentId || (student.applicationId && b.applicationRef === student.applicationId));
+      if (!balances.length) return student;
+      const total = balances.reduce((sum,b) => sum+b.amount,0), paid = balances.reduce((sum,b) => sum+b.paid,0);
+      return {...student,totalFee:String(total/100),amountPaid:String(paid/100),amountPending:String(Math.max(0,total-paid)/100),paymentStatus:paid>=total?"PAID IN FULL":paid>0?"PARTIALLY PAID":"PAYMENT PENDING"};
+    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Failed to load students:", error);
 
@@ -53,7 +63,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
+    return await db.transaction(async tx => {
+    if (body.applicationId) await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`enrollment:${String(body.applicationId).trim()}`}))`);
     const firstName = String(body.firstName || "").trim();
     const mobile = String(body.mobile || "").replace(/\D/g, "");
     const dob = String(body.dob || "").trim();
@@ -80,7 +93,20 @@ export async function POST(req: NextRequest) {
       String(body.studentId || "").trim() ||
       `STU-${randomUUID().slice(0, 8).toUpperCase()}`;
 
-    const [student] = await db
+    if (Number(body.amountPaid || 0) !== 0) return NextResponse.json({ error: "Record payments through the audited Fees & Payments workflow." }, { status: 400 });
+    const applicationRef = String(body.applicationId || "").trim();
+    if (applicationRef) {
+      const [application] = await tx.select().from(applications).where(eq(applications.applicationId, applicationRef));
+      const linked = await tx.select({ id: students.id }).from(students).where(eq(students.applicationId, applicationRef));
+      if (!application || linked.length || application.mobile !== mobile || application.dob !== dob) return NextResponse.json({ error: "Use a unique application with matching mobile and date of birth." }, { status: 409 });
+      body.courseId = application.courseId;
+      body.universityId = application.universityId;
+    }
+    if (body.courseId) {
+      const [course] = await tx.select({id:courses.id}).from(courses).where(eq(courses.id,Number(body.courseId)));
+      if (!course) return NextResponse.json({error:"Select a valid course."},{status:400});
+    }
+    const [student] = await tx
       .insert(students)
       .values({
         studentId,
@@ -89,9 +115,7 @@ export async function POST(req: NextRequest) {
           ? Number(body.leadId)
           : null,
 
-        applicationId: body.applicationId
-          ? Number(body.applicationId)
-          : null,
+        applicationId: applicationRef || null,
 
         centreId: body.centreId
           ? Number(body.centreId)
@@ -208,6 +232,10 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
+    if (applicationRef) {
+      const [application] = await tx.select({id:applications.id}).from(applications).where(eq(applications.applicationId,applicationRef));
+      await tx.update(feePlans).set({studentId:student.id}).where(eq(feePlans.applicationId,application.id));
+    }
     return NextResponse.json(
       {
         success: true,
@@ -215,6 +243,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 },
     );
+    });
   } catch (error) {
     const cause = error instanceof Error && "cause" in error ? error.cause : error;
     const code = cause && typeof cause === "object" && "code" in cause

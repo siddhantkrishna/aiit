@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import FeeReport from "@/components/FeeReport";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 type Transaction = {
   id: number;
@@ -112,9 +113,9 @@ export default function AccountingPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadTransactions();
-  }, [type, status]);
+  }); }, [type, status]);
 
   const filteredTransactions = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -148,17 +149,18 @@ export default function AccountingPage() {
 
   return (
     <div className="space-y-6">
+      <FeeReport />
       <div>
         <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
           Finance
         </p>
 
         <h1 className="text-3xl font-bold text-slate-900 mt-1">
-          Accounting
+          Other accounting entries
         </h1>
 
         <p className="text-slate-500 mt-2">
-          Track income, expenses and accounting transactions.
+          Manual non-fee accounting entries. Student fee collections are shown in the verified ledger above.
         </p>
       </div>
 

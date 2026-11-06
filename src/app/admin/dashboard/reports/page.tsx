@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import FeeReport from "@/components/FeeReport";
+import { startTransition, useEffect, useState } from "react";
 
 type DailySummary = {
   reportDate: string;
@@ -81,12 +82,13 @@ export default function ReportsPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadReports();
-  }, []);
+  }); }, []);
 
   return (
     <div className="space-y-6">
+      <FeeReport />
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">

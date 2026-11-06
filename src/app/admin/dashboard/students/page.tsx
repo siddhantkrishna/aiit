@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type Student = {
@@ -42,6 +43,8 @@ function statusClass(status: string) {
 }
 
 export default function StudentsPage() {
+  const [courseOptions, setCourseOptions] = useState<Array<{id:number;name:string}>>([]);
+  useEffect(() => { fetch("/api/courses").then(r => r.json()).then(rows => { if (Array.isArray(rows)) setCourseOptions(rows); }).catch(() => {}); }, []);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,7 +53,7 @@ export default function StudentsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState("");
-  const [newRecord, setNewRecord] = useState({ firstName: "", lastName: "", mobile: "", dob: "", programName: "", email: "", studentStatus: "ACTIVE" });
+  const [newRecord, setNewRecord] = useState({ firstName: "", lastName: "", mobile: "", dob: "", programName: "", applicationId: "", courseId: "", email: "", studentStatus: "ACTIVE" });
 
 
   async function createRecord(event: React.FormEvent<HTMLFormElement>) {
@@ -65,7 +68,7 @@ export default function StudentsPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to create student.");
-      setNewRecord({ firstName: "", lastName: "", mobile: "", dob: "", programName: "", email: "", studentStatus: "ACTIVE" });
+      setNewRecord({ firstName: "", lastName: "", mobile: "", dob: "", programName: "", applicationId: "", courseId: "", email: "", studentStatus: "ACTIVE" });
       setShowCreateForm(false);
       await loadStudents();
     } catch (error) {
@@ -173,6 +176,7 @@ export default function StudentsPage() {
               ["mobile", "Mobile number (10 digits)", "tel", true],
               ["dob", "Date of birth", "date", true],
               ["programName", "Program / Course", "text", false],
+              ["applicationId", "Application ID (if submitted)", "text", false],
               ["email", "Email address", "email", false],
             ] as const).map(([key, label, type, required]) => (
               <label key={key} className="block text-sm font-medium text-slate-700">
@@ -185,6 +189,11 @@ export default function StudentsPage() {
                 />
               </label>
             ))}
+            <label className="block text-sm font-medium text-slate-700">Course (if no application)
+              <select className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5" value={newRecord.courseId} onChange={e => setNewRecord({...newRecord,courseId:e.target.value,programName:courseOptions.find(c => c.id === Number(e.target.value))?.name || newRecord.programName})}>
+                <option value="">Select enrolled course</option>{courseOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
             <label className="block text-sm font-medium text-slate-700">
               Status
               <select value={newRecord.studentStatus} onChange={(e) => setNewRecord({ ...newRecord, studentStatus: e.target.value })}
@@ -294,7 +303,7 @@ export default function StudentsPage() {
                         </p>
 
                         <p className="text-xs text-slate-400 mt-1">
-                          {student.studentId}
+                          <Link href={`/admin/dashboard/students/${student.id}`} className="text-blue-700 underline">{student.studentId}</Link>
                         </p>
                       </td>
 

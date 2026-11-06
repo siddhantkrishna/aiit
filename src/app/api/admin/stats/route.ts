@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
+import { feeReport } from "@/lib/fees/report";
+import { requireAdmin } from "@/lib/admin-auth";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) return NextResponse.json({error:"Unauthorized"},{status:401});
     const [
       applications,
       pending,
@@ -13,8 +16,6 @@ export async function GET() {
       leads,
       students,
       activeStudents,
-      collections,
-      pendingFees,
       staff,
       openTasks,
       openServices,
@@ -77,17 +78,6 @@ export async function GET() {
       `),
 
       db.execute(sql`
-        select coalesce(sum(amount), 0)::numeric as total
-        from public.payments
-        where payment_status in ('RECEIVED', 'VERIFIED')
-      `),
-
-      db.execute(sql`
-        select coalesce(sum(amount_pending), 0)::numeric as total
-        from public.students
-      `),
-
-      db.execute(sql`
         select count(*)::int as count
         from public.staff
         where status = 'ACTIVE'
@@ -106,6 +96,7 @@ export async function GET() {
       `),
     ]);
 
+    const fees = await feeReport();
     return NextResponse.json({
       total: Number(applications.rows[0]?.count ?? 0),
       pending: Number(pending.rows[0]?.count ?? 0),
@@ -116,8 +107,8 @@ export async function GET() {
       leads: Number(leads.rows[0]?.count ?? 0),
       students: Number(students.rows[0]?.count ?? 0),
       activeStudents: Number(activeStudents.rows[0]?.count ?? 0),
-      collections: Number(collections.rows[0]?.total ?? 0),
-      pendingFees: Number(pendingFees.rows[0]?.total ?? 0),
+      collections: fees.summary.collected / 100,
+      pendingFees: fees.summary.outstanding / 100,
       staff: Number(staff.rows[0]?.count ?? 0),
       openTasks: Number(openTasks.rows[0]?.count ?? 0),
       openServices: Number(openServices.rows[0]?.count ?? 0),

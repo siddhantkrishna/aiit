@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 interface Vacancy {
   id: number;
@@ -124,9 +124,9 @@ export default function AdminVacanciesPage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadVacancies();
-  }, []);
+  }); }, []);
 
   function openAdd(prefillTitle = "") {
     const preset = prefillTitle ? starterVacancies[prefillTitle] || {} : {};

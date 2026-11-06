@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 type Row = {
@@ -47,7 +47,7 @@ export default function VacancyApplicationsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { startTransition(() => { void load(); }); }, [load]);
 
   const visible = filter === "all" ? rows : rows.filter((row) => row.status === filter);
 

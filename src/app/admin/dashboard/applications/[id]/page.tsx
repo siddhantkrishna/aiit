@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import FeePanel from "@/components/FeePanel";
+import { startTransition, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 type Application = {
@@ -137,9 +138,7 @@ export default function ApplicationDetailPage() {
   }
 
   useEffect(() => {
-    if (applicationId) {
-      loadApplication();
-    }
+    if (applicationId) startTransition(() => { void loadApplication(); });
   }, [applicationId]);
 
   async function updateStatus(newStatus: string) {
@@ -469,6 +468,8 @@ export default function ApplicationDetailPage() {
         </h2>
 
         <div className="mt-5">
+          <FeePanel admin applicationId={app.id} />
+          <h3 className="mt-6 font-semibold">Historical payment proof (archive)</h3>
           {app.paymentScreenshotPath ? (
             <div className="space-y-3">
               <p className="text-sm text-green-600 font-medium">
@@ -481,7 +482,7 @@ export default function ApplicationDetailPage() {
                 rel="noopener noreferrer"
                 className="inline-flex px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
               >
-                View Payment Screenshot
+                View Fees &amp; Payments
               </a>
             </div>
           ) : (

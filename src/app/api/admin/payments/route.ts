@@ -1,131 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminIdentity, feeResponse } from "@/lib/fees/auth";
+import { feeReport } from "@/lib/fees/report";
+import { csvCell, validDate, FeeError } from "@/lib/fees/rules";
 import { db } from "@/db";
 import { payments } from "@/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
-
-export async function GET(req: NextRequest) {
+import { desc } from "drizzle-orm";
+export async function GET(req:NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-
-    const search = searchParams.get("search")?.trim() || "";
-    const status = searchParams.get("status")?.trim() || "";
-
-    const conditions = [];
-
-    if (search) {
-      conditions.push(
-        or(
-          ilike(payments.receiptId, `%${search}%`),
-          ilike(payments.receiptNumber, `%${search}%`),
-          ilike(payments.referenceNumber, `%${search}%`),
-          ilike(payments.paymentType, `%${search}%`),
-          ilike(payments.paymentMode, `%${search}%`),
-        ),
-      );
+    adminIdentity(req); const params=req.nextUrl.searchParams;
+    if(params.get("legacy")==="true") return NextResponse.json(await db.select().from(payments).orderBy(desc(payments.createdAt)));
+    for (const key of ["from", "to"]) if (params.get(key) && !validDate(params.get(key))) throw new FeeError("Use a valid date range.");
+    if (params.get("from") && params.get("to") && params.get("from")! > params.get("to")!) throw new FeeError("The end date must follow the start date.");
+    if (params.get("semester") && !/^(?:[0-9]|1[0-9]|2[0-4])$/.test(params.get("semester")!)) throw new FeeError("Select a valid semester.");
+    const report=await feeReport(params);
+    if(params.get("export")==="csv") {
+      const keys=["id","receiptId","name","studentRef","applicationRef","course","plan","semester","amount","discount","refunded","method","status","razorpayOrderId","razorpayPaymentId","date"] as const;
+      const csv=[keys.map(csvCell).join(","),...report.rows.map(row=>keys.map(k=>csvCell(row[k])).join(","))].join("\r\n");
+      return new NextResponse("\uFEFF"+csv,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":"attachment; filename=aiit-fees-paise.csv","cache-control":"no-store"}});
     }
-
-    if (status && status !== "ALL") {
-      conditions.push(eq(payments.paymentStatus, status));
-    }
-
-    const rows = await db
-      .select()
-      .from(payments)
-      .where(
-        conditions.length
-          ? or(...conditions)
-          : undefined,
-      )
-      .orderBy(desc(payments.paymentDate));
-
-    return NextResponse.json(rows);
-  } catch (error) {
-    console.error("Failed to load payments:", error);
-
-    return NextResponse.json(
-      { error: "Failed to load payments." },
-      { status: 500 },
-    );
-  }
+    const page=Math.max(1,Number(params.get("page"))||1);
+    return NextResponse.json({...report,rows:report.rows.slice((page-1)*100,page*100),total:report.rows.length,page});
+  } catch(error) {return feeResponse(error);}
 }
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-
-    const amount = Number(body.amount);
-
-    if (!amount || amount <= 0) {
-      return NextResponse.json(
-        { error: "A valid payment amount is required." },
-        { status: 400 },
-      );
-    }
-
-    const receiptId =
-      String(body.receiptId || "").trim() ||
-      `RCT-${Date.now().toString().slice(-8)}`;
-
-    const [payment] = await db
-      .insert(payments)
-      .values({
-        receiptId,
-        studentId: body.studentId
-          ? Number(body.studentId)
-          : null,
-        applicationId: body.applicationId
-          ? Number(body.applicationId)
-          : null,
-        centreId: body.centreId
-          ? Number(body.centreId)
-          : null,
-
-        paymentDate:
-          body.paymentDate || new Date().toISOString().slice(0, 10),
-
-        amount: String(amount),
-
-        paymentType:
-          String(body.paymentType || "").trim() || null,
-
-        paymentMode:
-          String(body.paymentMode || "").trim() || null,
-
-        referenceNumber:
-          String(body.referenceNumber || "").trim() || null,
-
-        receivedBy:
-          body.receivedBy ? Number(body.receivedBy) : null,
-
-        proofPath:
-          String(body.proofPath || "").trim() || null,
-
-        paymentStatus:
-          String(body.paymentStatus || "RECEIVED"),
-
-        receiptNumber:
-          String(body.receiptNumber || "").trim() || null,
-
-        notes:
-          String(body.notes || "").trim() || null,
-      })
-      .returning();
-
-    return NextResponse.json(
-      {
-        success: true,
-        payment,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error("Failed to create payment:", error);
-
-    return NextResponse.json(
-      { error: "Failed to create payment." },
-      { status: 500 },
-    );
-  }
-}
-
-export const dynamic = "force-dynamic";
+export const dynamic="force-dynamic";

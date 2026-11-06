@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 type Attendance = {
   id: number;
@@ -79,9 +79,9 @@ export default function AttendancePage() {
     }
   }
 
-  useEffect(() => {
+  useEffect(() => { startTransition(() => {
     loadAttendance();
-  }, [leaveStatus]);
+  }); }, [leaveStatus]);
 
   const filteredAttendance = useMemo(() => {
     const query = search.trim().toLowerCase();

@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
+import { feeReport } from "@/lib/fees/report";
+import { requireAdmin } from "@/lib/admin-auth";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    if (!requireAdmin(req)) return NextResponse.json({error:"Unauthorized"},{status:401});
     const [dailyResult, monthlyResult, centresResult] =
       await Promise.all([
         db.execute(sql`
@@ -25,6 +28,7 @@ export async function GET() {
         `),
       ]);
 
+    const fees = await feeReport();
     const dailyRow = dailyResult.rows[0] || {};
     const monthlyRow = monthlyResult.rows[0] || {};
 
@@ -49,9 +53,7 @@ export async function GET() {
           dailyRow.new_admissions,
         ),
 
-        collectionsToday: numberValue(
-          dailyRow.collections_today,
-        ),
+        collectionsToday: fees.summary.today / 100,
 
         expensesToday: numberValue(
           dailyRow.expenses_today,
@@ -85,21 +87,15 @@ export async function GET() {
           monthlyRow.admissions,
         ),
 
-        collections: numberValue(
-          monthlyRow.collections,
-        ),
+        collections: fees.summary.month / 100,
 
         expenses: numberValue(
           monthlyRow.expenses,
         ),
 
-        netCashflow: numberValue(
-          monthlyRow.net_cashflow,
-        ),
+        netCashflow: fees.summary.month / 100 - numberValue(monthlyRow.expenses),
 
-        studentsWithPendingFees: numberValue(
-          monthlyRow.students_with_pending_fees,
-        ),
+        studentsWithPendingFees: new Set(fees.balances.filter(b => b.outstanding > 0).map(b => b.planId)).size,
       },
 
       centres: centresResult.rows.map((row) => ({
@@ -117,9 +113,7 @@ export async function GET() {
         admissions: numberValue(
           row.admissions,
         ),
-        collections: numberValue(
-          row.collections,
-        ),
+        collections: (fees.groups.centres.find(c => c.label === String(row.centre_id))?.collected || 0) / 100,
       })),
     });
   } catch (error) {
