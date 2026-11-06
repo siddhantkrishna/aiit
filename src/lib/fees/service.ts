@@ -61,9 +61,9 @@ export async function planSummary(store: Store, plan: typeof feePlans.$inferSele
   const schedule = obligations.map(item => {
     const paid = netPaid(history.filter(h => h.obligationId === item.id).map(h => h.transaction)) + offline.filter(h => h.credit.obligationId === item.id).reduce((s, h) => s + h.credit.amount, 0);
     const order = orders.find(o => o.order.obligationId === item.id && o.order.status !== "paid")?.order;
-    const status = obligationState(item.amount, paid, item.dueDate);
+    const status = obligationState(item.amount, paid);
     return { ...item, paid, outstanding: Math.max(0, item.amount - paid), status,
-      payable: (status === "Due" || status === "Overdue") && (!order || ["created", "attempted"].includes(order.status)) && !history.some(h => h.obligationId === item.id && h.transaction.status === "authorized") };
+      payable: status === "Unpaid" && (!order || ["created", "attempted"].includes(order.status)) && !history.some(h => h.obligationId === item.id && h.transaction.status === "authorized") };
   });
   const payable = obligations.reduce((s, x) => s + x.amount, 0);
   const collected = schedule.reduce((s, x) => s + x.paid, 0);
@@ -105,8 +105,9 @@ export async function selectPlan(who: FeeIdentity, kind: unknown, target: Target
     } else {
       [plan] = await tx.insert(feePlans).values({ applicationId: person.applicationId, studentId: person.studentId, courseId: person.courseId, configurationId: config.id, kind, originalAmount: config.originalAmount, discount }).returning();
     }
-    const schedule = kind === "full" ? [{ semester: 0, amount: config.originalAmount - discount, dueDate: indiaDate() }] : config.schedule;
-    await tx.insert(feeObligations).values(schedule.map(o => ({ ...o, planId: plan!.id })));
+    const schedule = kind === "full" ? [{ semester: 0, amount: config.originalAmount - discount }] : config.schedule;
+    // Due dates from older fee versions are retained only as history, never as payment restrictions.
+    await tx.insert(feeObligations).values(schedule.map(o => ({ semester: o.semester, amount: o.amount, planId: plan!.id })));
     return plan;
   });
 }
@@ -129,8 +130,6 @@ export async function createOrder(who: FeeIdentity, obligationId: number) {
     const item = summary.schedule.find(x => x.id === obligationId)!;
     if (row.person.needsReview && !row.plan.legacyReviewed) throw new FeeError("Accounts must review and migrate historical payments before checkout.", 409);
     if (!item.outstanding) throw new FeeError("This fee is already paid.", 409);
-    if (!["Due", "Overdue"].includes(item.status)) throw new FeeError("This semester is not due yet.", 409);
-    if (summary.schedule.some(o => o.semester < item.semester && o.outstanding > 0)) throw new FeeError("Pay the earlier due semester first.", 409);
     const [existing] = await tx.select().from(feeOrders).where(and(eq(feeOrders.obligationId, obligationId), ne(feeOrders.status, "paid")));
     if (existing) {
       if (existing.keyId !== process.env.RAZORPAY_KEY_ID) throw new FeeError("Checkout key changed. Accounts must reconcile the existing order.", 409);

@@ -43,7 +43,7 @@ async function applicant() {
   const [university]=await database.insert(schema.universities).values({name:`Test University ${i}`,enabled:true}).returning();
   const [course]=await database.insert(schema.courses).values({name:`Test course ${i}`,enabled:true,universityId:university.id}).returning();
   const [application]=await database.insert(schema.applications).values({applicationId:`TEST-${i}`,courseId:course.id,universityId:university.id,firstName:'TEST',lastName:`Applicant ${i}`,fatherName:'TEST',motherName:'TEST',dob:'2000-01-01',gender:'Other',mobile:'9999999999',address:'TEST ONLY',city:'TEST',state:'TEST',pinCode:'000000',declaration:true,status:'pending'}).returning();
-  await admin.configure(1,{courseId:course.id,universityId:university.id,originalFee:'60000.00',semesters:4,effectiveFrom:'2020-01-01',reason:'Isolated test fixture only',schedule:[{amount:'10000',dueDate:'2020-01-01'},{amount:'20000',dueDate:'2020-02-01'},{amount:'15000',dueDate:'2099-01-01'},{amount:'15000',dueDate:'2099-02-01'}]});
+  await admin.configure(1,{courseId:course.id,universityId:university.id,originalFee:'60000.00',semesters:4,effectiveFrom:'2020-01-01',reason:'Isolated test fixture only',schedule:[{amount:'10000'},{amount:'20000'},{amount:'15000'},{amount:'15000'}]});
   return {who:{applicationId:application.id},application,course};
 }
 function providerPayment(order,status='captured') {
@@ -75,14 +75,19 @@ before(async()=>{
   }
   await pool.query(fs.readFileSync(path.join(__dirname,'../drizzle/0006_verified_fees.sql'),'utf8'));
   await pool.query(fs.readFileSync(path.join(__dirname,'../drizzle/0009_university_fees.sql'),'utf8'));
+  await pool.query(fs.readFileSync(path.join(__dirname,'../drizzle/0011_anytime_semester_payments.sql'),'utf8'));
   service=require('../src/lib/fees/service.ts');rules=require('../src/lib/fees/rules.ts');admin=require('../src/lib/fees/admin.ts');webhook=require('../src/lib/fees/webhook.ts');report=require('../src/lib/fees/report.ts');
 });
 after(async()=>{if(pool)await pool.end();if(embedded)await embedded.stop();});
-test('integer paise, half-up discount rounding, schedule validation and INR dates',()=>{
+test('integer paise, half-up discount rounding and schedule validation without payment dates',()=>{
   assert.equal(rules.paise('60000.01'),6000001);assert.deepEqual(rules.fullFee(6000000),{payable:5400000,discount:600000});assert.equal(rules.fullFee(1005).payable,905);
   for(const value of ['-1','1.001','Infinity','1e4',60000,'10000001'])assert.throws(()=>rules.paise(value));
-  assert.throws(()=>rules.validateSchedule(300,2,[{semester:1,amount:100,dueDate:'2020-01-01'},{semester:2,amount:100,dueDate:'2020-02-01'}]));
-  assert.equal(rules.indiaDate(new Date('2026-11-05T20:00:00Z')),'2026-11-06');assert.equal(rules.obligationState(100,99,'2020-01-01'),'Overdue');
+  assert.throws(()=>rules.validateSchedule(300,2,[{semester:1,amount:100},{semester:2,amount:100}]));
+  assert.doesNotThrow(()=>rules.validateSchedule(300,2,[{semester:1,amount:100},{semester:2,amount:200}]));
+  assert.equal(rules.indiaDate(new Date('2026-11-05T20:00:00Z')),'2026-11-06');
+  assert.equal(rules.obligationState(100,99),'Unpaid');
+  assert.equal(rules.obligationState(100,100),'Paid');
+  assert.equal(rules.obligationState(100,99,'2099-01-01'),'Unpaid');
 });
 test('full payment credits only provider capture; unauthorized applicants cannot view, pay or verify',async()=>{
   const f=await applicant();const {order,obligation}=await firstOrder(f);assert.equal(order.amount,5400000);
@@ -100,10 +105,39 @@ test('concurrent checkout requests reserve one provider order and never charge t
   assert.equal(createCalls-count,1);assert.ok(results.some(r=>r.status==='fulfilled'));assert.equal((await database.select().from(schema.feeOrders).where(eq(schema.feeOrders.obligationId,plan.schedule[0].id))).length,1);
   const retry=await service.createOrder(f.who,plan.schedule[0].id);assert.equal(retry.amount,1000000);assert.equal(createCalls-count,1);
 });
-test('semester capture pays only that obligation; prevents discount switching and future checkout',async()=>{
-  const f=await applicant();const {order}=await firstOrder(f,'semester');providerPayment(order);await service.reconcileOrder(order.id);
-  const portal=await service.portal(f.who);assert.equal(portal.plan.discount,0);assert.equal(portal.plan.status,'PARTIALLY PAID');assert.equal(portal.plan.schedule[0].status,'Paid');assert.equal(portal.plan.schedule[1].outstanding,2000000);assert.equal(portal.plan.outstanding,5000000);
-  await assert.rejects(()=>service.selectPlan(f.who,'full'),/already exists/i);await assert.rejects(()=>service.createOrder(f.who,portal.plan.schedule[2].id),/not due/i);
+test('paying Semester 4 first is allowed; Semester 1 remains payable, receipts and balances are independent',async()=>{
+  const f=await applicant();
+  await service.selectPlan(f.who,'semester');
+  const initial=(await service.portal(f.who)).plan;
+  assert.equal(initial.schedule.length,4);
+  assert.ok(initial.schedule.every(o=>o.status==='Unpaid' && o.payable && o.dueDate===null));
+  // Older fee records may still contain historical dates. Neither a future
+  // date nor an unpaid earlier semester may block an independent installment.
+  await database.update(schema.feeObligations).set({dueDate:'2099-01-01'}).where(eq(schema.feeObligations.id,initial.schedule[3].id));
+  const fourth=await service.createOrder(f.who,initial.schedule[3].id);
+  assert.equal(fourth.amount,1500000);
+  providerPayment(fourth);await service.reconcileOrder(fourth.id);
+  const afterFourth=(await service.portal(f.who)).plan;
+  assert.equal(afterFourth.discount,0);
+  assert.equal(afterFourth.status,'PARTIALLY PAID');
+  assert.equal(afterFourth.schedule[3].status,'Paid');
+  assert.equal(afterFourth.schedule[0].status,'Unpaid');
+  assert.equal(afterFourth.schedule[0].outstanding,1000000);
+  assert.equal(afterFourth.outstanding,4500000);
+  assert.ok(afterFourth.schedule[0].payable);
+  const first=await service.createOrder(f.who,afterFourth.schedule[0].id);
+  assert.equal(first.amount,1000000);
+  providerPayment(first);await service.reconcileOrder(first.id);
+  const summary=(await service.portal(f.who)).plan;
+  assert.equal(summary.collected,2500000);
+  assert.equal(summary.outstanding,3500000);
+  assert.equal(summary.schedule[0].status,'Paid');
+  assert.equal(summary.schedule[1].status,'Unpaid');
+  assert.equal(summary.schedule[2].status,'Unpaid');
+  assert.equal(summary.schedule[3].status,'Paid');
+  assert.equal(summary.history.filter(t=>t.receiptId).length,2);
+  await assert.rejects(()=>service.selectPlan(f.who,'full'),/already exists/i);
+  await assert.rejects(()=>service.createOrder(f.who,initial.schedule[3].id),/already paid/i);
 });
 test('failed payment and cancellation retain application and allow same-order retry',async()=>{
   const f=await applicant();const {order,obligation}=await firstOrder(f);providerPayment(order,'failed');await service.reconcileOrder(order.id);
@@ -157,7 +191,7 @@ test('offline credits, historical review and amendments are audited and cannot e
   await admin.adminAction(1,{planId:plan.id,action:'offline',obligationId:plan.schedule[0].id,amount:'1000',reference:'TEST-OFFLINE-1',reason:'Bank receipt verified in test',receivedAt:'2020-01-01'});
   assert.equal((await service.portal(f.who)).plan.collected,100000);
   await assert.rejects(()=>admin.adminAction(1,{planId:plan.id,action:'offline',obligationId:plan.schedule[0].id,amount:'20000',reference:'TEST-OFFLINE-2',reason:'Excessive credit test',receivedAt:'2020-01-01'}),/exceeds/);
-  await admin.adminAction(1,{planId:plan.id,action:'adjust',obligationId:plan.schedule[1].id,amount:'19000',dueDate:'2020-02-01',reason:'Approved fee reduction test'});
+  await admin.adminAction(1,{planId:plan.id,action:'adjust',obligationId:plan.schedule[1].id,amount:'19000',reason:'Approved fee reduction test'});
   const summary=await service.portal(f.who);assert.equal(summary.plan.payable,5900000);assert.equal((await database.select().from(schema.feeAudit).where(eq(schema.feeAudit.planId,plan.id))).length,2);
 });
 test('dashboard and reports derive the same net ledger and correctly combine filters',async()=>{
@@ -176,7 +210,7 @@ test('PDF generation supports Indian names; receipt cannot be downloaded by anot
 });
 test('admission saves without screenshot; retry with the same submission key returns the same application',async()=>{
   const f=await applicant();const route=require('../src/app/api/applications/route.ts');const {NextRequest}=require('next/server');
-  const body={courseId:f.course.id,submissionKey:randomBytes(32).toString('hex'),firstName:'TEST',fatherName:'TEST',motherName:'TEST',dob:'2000-01-01',gender:'Other',mobile:'9999999999',address:'TEST',city:'TEST',state:'TEST',pinCode:'000000',declaration:true};
+  const body={courseId:f.course.id,universityId:f.application.universityId,submissionKey:randomBytes(32).toString('hex'),firstName:'TEST',fatherName:'TEST',motherName:'TEST',dob:'2000-01-01',gender:'Other',mobile:'9999999999',address:'TEST',city:'TEST',state:'TEST',pinCode:'000000',declaration:true};
   const request=()=>new NextRequest('http://localhost/api/applications',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   const a=await route.POST(request()), b=await route.POST(request());assert.equal(a.status,201);const first=await a.json(), second=await b.json();assert.equal(first.applicationId,second.applicationId);assert.equal(first.recoveryCode,body.submissionKey);assert.ok(a.headers.get('set-cookie').includes('HttpOnly'));
 });
@@ -194,9 +228,9 @@ test('configuration sum and duplicate capture constraints reject inconsistent da
 });
 test('standalone course assignment is audited and cannot replace an existing enrollment',async()=>{
   const f=await applicant();const [student]=await database.insert(schema.students).values({studentId:'TEST-ASSIGN',firstName:'TEST',mobile:'9999999999',dob:'2000-01-01'}).returning();
-  await admin.assignStudentCourse(1,student.id,f.course.id,'Verified standalone enrollment');
+  await admin.assignStudentCourse(1,student.id,f.course.id,f.application.universityId,'Verified standalone enrollment');
   assert.equal((await service.portal({studentId:student.id})).person.courseId,f.course.id);
-  await assert.rejects(()=>admin.assignStudentCourse(1,student.id,f.course.id,'Repeated standalone enrollment'),/already exists/);
+  await assert.rejects(()=>admin.assignStudentCourse(1,student.id,f.course.id,f.application.universityId,'Repeated standalone enrollment'),/already exists/);
 });
 test('applicant recovery uses a private code and administrator resets are audited',async()=>{
   const f=await applicant();const auth=require('../src/lib/fees/auth.ts');

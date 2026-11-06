@@ -8,7 +8,7 @@ export type FeeRow = {
   original: number; discount: number; amount: number; refunded: number; gatewayFee: number | null; gatewayTax: number | null;
   status: string; method: string; razorpayOrderId: string | null; razorpayPaymentId: string | null; date: string; captured: boolean; legacy: boolean;
 };
-export type FeeBalance = { planId: number; name: string; studentRef: string; applicationRef: string; courseId: number; course: string; plan: string; semester: number; amount: number; paid: number; outstanding: number; dueDate: string };
+export type FeeBalance = { planId: number; name: string; studentRef: string; applicationRef: string; courseId: number; course: string; plan: string; semester: number; amount: number; paid: number; outstanding: number; dueDate: string | null };
 function matches(row: { name: string; studentRef: string; applicationRef: string; courseId: number; plan: string; semester: number }, params: URLSearchParams) {
   const query = params.get("search")?.trim().toLowerCase();
   const values = Object.values(row).join(" ").toLowerCase();
@@ -67,7 +67,7 @@ export async function feeReport(params = new URLSearchParams()) {
   };
   return { rows, balances, legacyRecords: Number(source.legacyRecords),
     summary: { collected: collected(verified), gross: verified.reduce((s,r) => s+r.amount,0), today: collected(verified.filter(r => indiaDate(new Date(r.date)) === today)), month: collected(verified.filter(r => indiaDate(new Date(r.date)).slice(0,7) === today.slice(0,7))),
-      outstanding: balances.reduce((s,r) => s+r.outstanding,0), overdue: balances.filter(r => r.dueDate < today).reduce((s,r) => s+r.outstanding,0),
+      outstanding: balances.reduce((s,r) => s+r.outstanding,0),
       full: verified.filter(r => r.plan === "full").length, semester: verified.filter(r => r.plan === "semester").length,
       failedPending: rows.filter(r => !r.captured).length, refunds: verified.reduce((s,r) => s+r.refunded,0), discounts,
       gatewayFees: verified.reduce((s,r) => s+(r.gatewayFee || 0),0), gatewayTax: verified.reduce((s,r) => s+(r.gatewayTax || 0),0), openingCredits: rows.filter(r => r.legacy).reduce((s,r) => s+r.amount,0) },

@@ -2131,7 +2131,7 @@ export const studentResults = pgTable("student_results", {
 });
 
 /* Verified fee ledger. Legacy payments and student balance columns remain historical. */
-export type FeeSchedule = Array<{ semester: number; amount: number; dueDate: string }>;
+export type FeeSchedule = Array<{ semester: number; amount: number; dueDate?: string | null }>;
 export const feeConfigurations = pgTable("fee_configurations", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").notNull().references(() => courses.id),
@@ -2169,7 +2169,7 @@ export const feeObligations = pgTable("fee_obligations", {
   planId: integer("plan_id").notNull().references(() => feePlans.id),
   semester: integer("semester").notNull(),
   amount: integer("amount").notNull(),
-  dueDate: date("due_date").notNull(),
+  dueDate: date("due_date"),
 }, (t) => [uniqueIndex("fee_obligation_semester_idx").on(t.planId, t.semester), check("fee_obligation_money", sql`${t.amount} > 0 AND ${t.amount} <= 1000000000 AND ${t.semester} BETWEEN 0 AND 24`)]);
 
 export const feeOrders = pgTable("fee_orders", {

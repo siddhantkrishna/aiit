@@ -22,12 +22,15 @@ export function indiaDate(date = new Date()) {
 export function validDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 }
-export function validateSchedule(total: number, semesters: number, schedule: Array<{ semester: number; amount: number; dueDate: string }>) {
-  if (!Number.isInteger(semesters) || semesters < 1 || semesters > 24 || schedule.length !== semesters) throw new FeeError("Configure 1–24 semesters with one installment per semester.");
+export function validateSchedule(total: number, semesters: number, schedule: Array<{ semester: number; amount: number }>) {
+  if (!Number.isInteger(semesters) || semesters < 1 || semesters > 24 || schedule.length !== semesters) {
+    throw new FeeError("Configure 1–24 semester payments.");
+  }
   let sum = 0;
   schedule.forEach((item, i) => {
-    if (item.semester !== i + 1 || !Number.isInteger(item.amount) || item.amount < 100 || !validDate(item.dueDate)) throw new FeeError("Each semester needs an amount of at least INR 1 and a valid due date.");
-    if (i && item.dueDate < schedule[i - 1].dueDate) throw new FeeError("Semester due dates must be in chronological order.");
+    if (item.semester !== i + 1 || !Number.isInteger(item.amount) || item.amount < 100 || item.amount > 1_000_000_000) {
+      throw new FeeError("Each semester needs a valid amount of at least INR 1.");
+    }
     sum += item.amount;
   });
   if (sum !== total) throw new FeeError("Semester amounts must equal the original course fee exactly.");
@@ -41,8 +44,8 @@ export function recoveryHash(code: string) { return createHash("sha256").update(
 export function netPaid(transactions: Array<{ capturedAt: Date | string | null; amount: number; refunded: number }>) {
   return transactions.reduce((sum, t) => sum + (t.capturedAt ? t.amount - t.refunded : 0), 0);
 }
-export function obligationState(amount: number, paid: number, dueDate: string, today = indiaDate()) {
-  return paid >= amount ? "Paid" : dueDate < today ? "Overdue" : dueDate === today ? "Due" : "Upcoming";
+export function obligationState(amount: number, paid: number) {
+  return paid >= amount ? "Paid" : "Unpaid";
 }
 export function mayAccess(owner: { applicationId: number | null; studentId: number | null }, identity: { applicationId?: number; studentId?: number; adminId?: number }) {
   return !!identity.adminId || (!!identity.studentId && owner.studentId === identity.studentId) || (!!identity.applicationId && owner.applicationId === identity.applicationId);
