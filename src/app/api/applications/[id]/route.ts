@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { applications, documents } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { signedDocumentUrl } from "@/lib/document-access";
 import { requireAdmin } from "@/lib/admin-auth";
 
 const VALID_STATUSES = [
@@ -54,9 +55,9 @@ export async function GET(
       .where(eq(documents.applicationId, application.applicationId));
 
     return NextResponse.json({
-      application,
-      documents: docs,
-    });
+      application: {...application,paymentScreenshotPath:await signedDocumentUrl(application.paymentScreenshotPath)},
+      documents: await Promise.all(docs.map(async doc => ({...doc,filePath:await signedDocumentUrl(doc.filePath)}))),
+    }, {headers:{"cache-control":"private, no-store"}});
   } catch (error) {
     console.error("Error fetching application:", error);
 

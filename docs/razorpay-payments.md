@@ -4,6 +4,8 @@
 
 The existing college app remains Next.js / Drizzle / PostgreSQL. The original `payments` table, student fee columns and application screenshot fields are preserved as historical records. New collections use the `fee_*` ledger. Nothing in the old archive is silently promoted to verified Razorpay revenue.
 
+The shared `documents` bucket must be private. Admission documents, historical payment screenshots and recruitment resumes are served to authenticated administrators using five-minute signed URLs; stored references and files are preserved.
+
 The audit found manual UPI/reference submissions, no gateway verification, independent writable student balances, OR-combined payment filters, and a Drizzle mismatch: production `students.application_id` is a text admission reference, not an integer. The new enrollment path validates that reference, matching mobile and date of birth, and prevents duplicate enrollment links. New financial APIs validate authorization inside each handler; the proxy is an additional check. Admin verification rejects student/applicant JWTs.
 
 Changed areas: admission form and submission API; fee calculation, provider, ownership, reconciliation, reporting and receipt modules in `src/lib/fees`; public payment routes in `src/app/api/fees`; admin payment routes; shared fee panels; applicant and student profiles; Payments, Accounting, Reports and overview totals; schema and migration; tests; environment example; font assets and their license. Existing request effects received small React transition fixes so lint can pass. Next.js and Zod were updated for security advisories; no unrelated application features were added.
