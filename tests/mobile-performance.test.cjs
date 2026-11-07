@@ -6,7 +6,7 @@ const read = (path) => fs.readFileSync(path, "utf8");
 
 test("mobile skips desktop-only hero preload and defers large campus images", () => {
   const home = read("src/app/page.tsx");
-  const desktopHero = home.slice(home.indexOf('src="/images/hero-bg.jpg"'), home.indexOf('src="/images/hero-bg.jpg"') + 250);
+  const desktopHero = home.slice(home.indexOf('src="/images/hero-bg.jpg"'), home.indexOf('src="/images/hero-bg.jpg"') + 400);
   assert.match(desktopHero, /loading="lazy"/);
   assert.doesNotMatch(desktopHero, /priority/);
   assert.doesNotMatch(home, /campus-3\.jpg/);
