@@ -160,7 +160,9 @@ export default function HomePage() {
                 width={600}
                 height={400}
                 className="rounded-2xl shadow-2xl object-cover"
-                priority
+                sizes="(min-width: 1280px) 600px, 50vw"
+                quality={65}
+                loading="lazy"
               />
             </div>
           </div>
@@ -184,7 +186,7 @@ export default function HomePage() {
       </section>
 
       {/* About */}
-      <section id="about" className="py-16 md:py-24 bg-white">
+      <section id="about" className="mobile-deferred py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -217,6 +219,9 @@ export default function HomePage() {
             <div className="grid grid-cols-2 gap-4">
               <Image
                 src="/images/campus-1.jpg"
+                sizes="(max-width: 767px) 44vw, (max-width: 1023px) 48vw, 300px"
+                quality={60}
+                loading="lazy"
                 alt="Computer Lab"
                 width={300}
                 height={200}
@@ -224,17 +229,13 @@ export default function HomePage() {
               />
               <Image
                 src="/images/campus-2.jpg"
+                sizes="(max-width: 767px) 44vw, (max-width: 1023px) 48vw, 300px"
+                quality={60}
+                loading="lazy"
                 alt="Library"
                 width={300}
                 height={200}
                 className="rounded-xl object-cover w-full h-48 mt-8"
-              />
-              <Image
-                src="/images/campus-3.jpg"
-                alt="Classroom"
-                width={300}
-                height={200}
-                className="rounded-xl object-cover w-full h-48 col-span-2"
               />
             </div>
           </div>
@@ -242,7 +243,7 @@ export default function HomePage() {
       </section>
 
       {/* Why Choose */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="mobile-deferred py-16 md:py-24 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">
@@ -270,7 +271,7 @@ export default function HomePage() {
       </section>
 
       {/* Universities */}
-      <section className="py-16 md:py-24 bg-white">
+      <section className="mobile-deferred py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">
@@ -302,7 +303,7 @@ export default function HomePage() {
       </section>
 
       {/* Admission Process */}
-      <section className="py-16 md:py-24 bg-primary-dark text-white">
+      <section className="mobile-deferred py-16 md:py-24 bg-primary-dark text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-primary-light uppercase tracking-wider mb-2">
@@ -338,7 +339,7 @@ export default function HomePage() {
       </section>
 
       {/* Study Modes */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="mobile-deferred py-16 md:py-24 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">
@@ -369,7 +370,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 md:py-24 bg-white">
+      <section className="mobile-deferred py-16 md:py-24 bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">
@@ -401,7 +402,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 bg-primary">
+      <section className="mobile-deferred py-16 bg-primary">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Ready to Start Your Journey?

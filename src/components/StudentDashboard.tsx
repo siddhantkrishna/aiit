@@ -2,8 +2,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { startTransition,useCallback,useEffect,useState } from "react";
-import FeePanel from "@/components/FeePanel";
+import dynamic from "next/dynamic";
 import { BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, CreditCard, FileBadge, FileText, GraduationCap, IdCard, LayoutDashboard, LogOut, Megaphone, Printer, RefreshCw, Send, ShieldCheck, UserRound } from "lucide-react";
+
+// The payment interface and checkout logic are loaded only when the Fees tab is opened.
+const FeePanel = dynamic(() => import("@/components/FeePanel"), {
+  ssr: false,
+  loading: () => <p className="p-5 text-sm text-slate-600" role="status">Loading fee details…</p>,
+});
 
 type Student={id:number;studentId:string;firstName:string|null;lastName:string|null;fatherName:string|null;motherName:string|null;dob:string|null;gender:string|null;mobile:string|null;email:string|null;address:string|null;city:string|null;state:string|null;pinCode:string|null;qualification:string|null;programName:string|null;courseName:string;courseDuration:string|null;universityName:string;universityShortName:string|null;studyMode:string|null;studentStatus:string|null;admissionDate:string|null;enrollmentNumber:string|null;documentStatus:string|null;certificateStatus:string|null;applicationId:string|null;emergencyContactName:string|null;emergencyContactMobile:string|null};
 type ClassRow={id:number;title:string;description:string|null;instructor:string|null;scheduledAt:string;durationMinutes:number|null;meetingUrl:string|null;recordingUrl:string|null;status:string};
