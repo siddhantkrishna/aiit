@@ -156,9 +156,14 @@ export function buildUniversityCourseListings(
     const exactMode = matches.filter(item => item.mode === (course.studyMode ?? "").trim().toUpperCase());
     // A single certificate price row for DCA can be matched to the approved
     // general DCA course; multiple variants must never be guessed.
-    const match = exactMode.length === 1 ? exactMode[0] : matches.length === 1 ? matches[0] : null;
+    const match = exactMode.length === 1
+      ? exactMode[0]
+      : matches.length === 1 && matches[0].mode === "CERTIFICATE"
+        ? matches[0]
+        : null;
     if (match) {
       match.status = "approved";
+      match.mode = (course.studyMode ?? match.mode).toUpperCase();
       match.basis = "APPROVED_TOTAL";
       match.amountPaise = fee.originalAmount;
       match.maximumAmountPaise = fee.originalAmount;
