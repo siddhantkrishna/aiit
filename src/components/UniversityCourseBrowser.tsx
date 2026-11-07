@@ -40,7 +40,11 @@ function PriceCard({ listing }: { listing: UniversityCourseListing }) {
     <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-          {listing.mode}
+          {isApproved
+            ? `${listing.mode.toLowerCase()} programme`
+            : listing.mode === "CERTIFICATE"
+              ? "Certificate price list"
+              : `${listing.mode} price list`}
         </span>
         {isApproved && (
           <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
