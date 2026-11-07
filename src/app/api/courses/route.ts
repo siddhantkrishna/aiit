@@ -3,6 +3,7 @@ import { adminIdentity, feeResponse, sameOrigin } from "@/lib/fees/auth";
 import { db } from "@/db";
 import { courses } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { findDuplicateCourse } from "@/lib/course-search";
 
 export async function GET() {
   try {
@@ -19,8 +20,29 @@ export async function POST(req: NextRequest) {
     sameOrigin(req);
     adminIdentity(req);
     const body = await req.json();
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      return NextResponse.json({ error: "Course name is required." }, { status: 400 });
+    }
+    const candidate = {
+      id: -1,
+      name,
+      fullName: body.fullName ?? "",
+      studyMode: body.studyMode ?? "Regular",
+      universityId: body.universityId ? Number(body.universityId) : null,
+    };
+    if (body.enabled !== false) {
+      const activeCourses = await db.select().from(courses).where(eq(courses.enabled, true));
+      const duplicate = findDuplicateCourse(activeCourses, candidate);
+      if (duplicate) {
+        return NextResponse.json({
+          error: `This course already exists: ${duplicate.name} (${duplicate.studyMode ?? "Regular"}). Edit the existing course instead.`,
+          existingCourseId: duplicate.id,
+        }, { status: 409 });
+      }
+    }
     const newCourse = await db.insert(courses).values({
-      name: body.name,
+      name,
       fullName: body.fullName,
       duration: body.duration,
       eligibility: body.eligibility,

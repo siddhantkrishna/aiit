@@ -31,6 +31,9 @@ export default function CoursesManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
   const [form, setForm] = useState(emptyCourse);
+  const [error, setError] = useState("");
+  const [showDisabled, setShowDisabled] = useState(false);
+  const visibleCourses = showDisabled ? courses : courses.filter(course => course.enabled);
 
   function loadCourses() {
     fetch("/api/courses")
@@ -46,12 +49,14 @@ export default function CoursesManagement() {
 
   function openAdd() {
     setEditing(null);
+    setError("");
     setForm(emptyCourse);
     setShowForm(true);
   }
 
   function openEdit(course: Course) {
     setEditing(course);
+    setError("");
     setForm({
       name: course.name,
       fullName: course.fullName || "",
@@ -67,30 +72,40 @@ export default function CoursesManagement() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      await fetch(`/api/courses/${editing.id}`, {
-        method: "PUT",
+    setError("");
+    try {
+      const response = await fetch(editing ? `/api/courses/${editing.id}` : "/api/courses", {
+        method: editing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-    } else {
-      await fetch("/api/courses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || "Unable to save course.");
+      }
+      setShowForm(false);
+      loadCourses();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save course.");
     }
-    setShowForm(false);
-    loadCourses();
   }
 
   async function toggleEnabled(course: Course) {
-    await fetch(`/api/courses/${course.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...course, enabled: !course.enabled }),
-    });
-    loadCourses();
+    setError("");
+    try {
+      const response = await fetch(`/api/courses/${course.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...course, enabled: !course.enabled }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || "Unable to change course status.");
+      }
+      loadCourses();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to change course status.");
+    }
   }
 
   async function deleteCourse(id: number) {
@@ -106,7 +121,16 @@ export default function CoursesManagement() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <p className="text-muted text-sm">{courses.length} courses total</p>
+        <div className="flex flex-wrap items-center gap-4">
+          <p className="text-muted text-sm">{courses.filter(course => course.enabled).length} active courses</p>
+          <button
+            type="button"
+            onClick={() => setShowDisabled(value => !value)}
+            className="text-sm text-primary underline underline-offset-2"
+          >
+            {showDisabled ? "Hide disabled courses" : `Show disabled courses (${courses.filter(course => !course.enabled).length})`}
+          </button>
+        </div>
         <button
           onClick={openAdd}
           className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark"
@@ -115,6 +139,10 @@ export default function CoursesManagement() {
         </button>
       </div>
 
+      {error && !showForm && (
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      )}
+
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
@@ -122,6 +150,9 @@ export default function CoursesManagement() {
             <h2 className="text-lg font-bold mb-4">
               {editing ? "Edit Course" : "Add Course"}
             </h2>
+            {error && (
+              <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+            )}
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium mb-1">Short Name *</label>
@@ -139,7 +170,7 @@ export default function CoursesManagement() {
                   value={form.fullName}
                   onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                   className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
-                  placeholder="e.g., Bachelor of Computer Application"
+                  placeholder="e.g., Bachelor of Computer Applications"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -244,7 +275,7 @@ export default function CoursesManagement() {
               </tr>
             </thead>
             <tbody>
-              {courses.map((course) => (
+              {visibleCourses.map((course) => (
                 <tr key={course.id} className="border-b border-border hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <p className="font-medium">{course.name}</p>
