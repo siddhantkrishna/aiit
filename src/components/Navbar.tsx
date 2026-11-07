@@ -61,7 +61,7 @@ export default function Navbar() {
             <div className="relative group">
               <button type="button" className="px-2 py-2 text-sm font-medium text-foreground hover:text-primary rounded-lg hover:bg-blue-50 transition-colors">Online Services ▾</button>
               <div className="invisible absolute right-0 top-full mt-2 w-56 translate-y-1 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} prefetch={false} prefetch={false} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-primary">{link.label}</Link>)}
+                {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} prefetch={false} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-primary">{link.label}</Link>)}
               </div>
             </div>
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-3">
@@ -120,7 +120,7 @@ export default function Navbar() {
             ))}
             <div className="border-t border-border pt-2 mt-2">
               <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-muted">Online Services</p>
-              {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-blue-50 hover:text-primary" onClick={() => setOpen(false)}>{link.label}</Link>)}
+              {onlineServiceLinks.map((link) => <Link key={link.href} href={link.href} prefetch={false} className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-blue-50 hover:text-primary" onClick={() => setOpen(false)}>{link.label}</Link>)}
             </div>
             <div className="mt-3 border-t border-border pt-3">
               <Link
