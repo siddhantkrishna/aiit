@@ -58,3 +58,33 @@ export function resolveTypedCourse<T extends SearchableCourse>(
   const matches = matchingCourses(courses, query);
   return matches.length === 1 ? matches[0] : undefined;
 }
+
+
+/**
+ * An offering is unique within its university and delivery mode.
+ * Different specialisations, study modes and universities stay distinct.
+ * Inactive/archived rows do not prevent new active offerings.
+ */
+function courseIdentity(course: SearchableCourse): string {
+  const title = (course.fullName?.trim() || course.name.trim())
+    .toLocaleLowerCase()
+    .replace(/\bapplications\b/g, "application")
+    .replace(/\btechnologies\b/g, "technology")
+    .replace(/\band\b/g, "&")
+    .replace(/[^a-z0-9]/g, "");
+  const mode = normalize(course.studyMode ?? "");
+  return [title, mode, course.universityId ?? "general"].join(":");
+}
+
+export function findDuplicateCourse<T extends SearchableCourse & { enabled?: boolean }>(
+  catalog: readonly T[],
+  candidate: SearchableCourse,
+  excludeId?: number,
+): T | undefined {
+  const identity = courseIdentity(candidate);
+  return catalog.find(course =>
+    course.id !== excludeId &&
+    course.enabled !== false &&
+    courseIdentity(course) === identity,
+  );
+}
