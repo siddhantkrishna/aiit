@@ -29,3 +29,18 @@ body {
     scroll-behavior: smooth;
   }
 }
+
+/* Defer painting long, below-the-fold homepage sections on narrow screens.
+   The intrinsic size keeps scroll geometry stable until each section is painted. */
+@media (max-width: 767px) {
+  .mobile-deferred {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 850px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

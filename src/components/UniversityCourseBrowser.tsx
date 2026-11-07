@@ -12,11 +12,13 @@ type Props = {
   courses: ListedCourse[];
 };
 
-const money = (paise: number) => new Intl.NumberFormat("en-IN", {
+const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 0,
-}).format(paise / 100);
+});
+const money = (paise: number) => currencyFormatter.format(paise / 100);
+const PAGE_SIZE = 12;
 
 const categoryColors: Record<string, string> = {
   Computer: "border-blue-200 bg-blue-50 text-blue-700",
@@ -120,6 +122,7 @@ export default function UniversityCourseBrowser({ universities, listings, course
   const [selection, setSelection] = useState(firstWithPrices ? String(firstWithPrices.id) : "all");
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const showingAll = selection === "all";
   const selectedUniversity = universities.find(u => String(u.id) === selection);
   const universityListings = useMemo(
@@ -137,10 +140,15 @@ export default function UniversityCourseBrowser({ universities, listings, course
       .some(value => value.toLocaleLowerCase().includes(query)),
   );
 
+  const displayedCourses = filteredCourses.slice(0, visibleCount);
+  const displayedListings = filteredListings.slice(0, visibleCount);
+  const resultCount = showingAll ? filteredCourses.length : filteredListings.length;
+
   function selectUniversity(id: string) {
     setSelection(id);
     setSearch("");
     setMode("all");
+    setVisibleCount(PAGE_SIZE);
   }
 
   return (
@@ -190,12 +198,12 @@ export default function UniversityCourseBrowser({ universities, listings, course
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <label className="sr-only" htmlFor="course-catalog-search">Search courses</label>
-          <input id="course-catalog-search" type="search" value={search} onChange={e => setSearch(e.target.value)}
+          <input id="course-catalog-search" type="search" value={search} onChange={e => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE); }}
             placeholder="Search courses…" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary sm:w-60" />
           {!showingAll && modes.length > 1 && (
             <>
               <label className="sr-only" htmlFor="course-mode-filter">Course mode</label>
-              <select id="course-mode-filter" value={mode} onChange={e => setMode(e.target.value)}
+              <select id="course-mode-filter" value={mode} onChange={e => { setMode(e.target.value); setVisibleCount(PAGE_SIZE); }}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary">
                 <option value="all">All modes</option>
                 {modes.map(value => <option key={value} value={value}>{value}</option>)}
@@ -226,14 +234,30 @@ export default function UniversityCourseBrowser({ universities, listings, course
       ) : showingAll ? (
         filteredCourses.length ? (
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredCourses.map(course => <GeneralCourseCard key={course.id} course={course} />)}
+            {displayedCourses.map(course => <GeneralCourseCard key={course.id} course={course} />)}
           </div>
         ) : <p className="py-12 text-center text-slate-600">No courses match your search.</p>
       ) : filteredListings.length ? (
         <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredListings.map(item => <PriceCard key={item.key} listing={item} />)}
+          {displayedListings.map(item => <PriceCard key={item.key} listing={item} />)}
         </div>
       ) : <p className="py-12 text-center text-slate-600">No courses match these filters.</p>}
+      {resultCount > 0 && (showingAll || universityListings.length > 0) && (
+        <div className="mt-7 flex flex-col items-center gap-3">
+          <p className="text-sm text-slate-600" role="status">
+            Showing {Math.min(visibleCount, resultCount)} of {resultCount} courses
+          </p>
+          {resultCount > visibleCount && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount(count => count + PAGE_SIZE)}
+              className="min-h-11 rounded-lg border border-primary px-6 py-3 text-sm font-semibold text-primary hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Show more courses
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
