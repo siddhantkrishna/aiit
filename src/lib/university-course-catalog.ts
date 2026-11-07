@@ -16,6 +16,7 @@ export type ListedCourse = {
   studyMode?: string | null;
   universityId?: number | null;
   enabled: boolean;
+  category?: string | null;
   duration?: string | null;
   eligibility?: string | null;
 };
@@ -73,7 +74,7 @@ const sourceTitles: Record<string, string> = {
   "MASTER OF JOUNRALISM AND MASS COMUNICATION": "Master of Journalism and Mass Communication",
   "MASTER OF LIBRARY AND INFORMATION SCIENCE": "Master of Library and Information Science",
   "HDCPA (HORORS DIPLOMA IN COMPUTER PROGRAMING AND APPLICATION)": "HDCPA (Honours Diploma in Computer Programming and Applications)",
-  "ACCPA (ADVANCE CERTIFICATE  IN COMPUTER PROGRAMING AND APPLICATION)": "ACCPA (Advanced Certificate in Computer Programming and Applications)",
+  "ACCPA (ADVANCE CERTIFICATE IN COMPUTER PROGRAMING AND APPLICATION)": "ACCPA (Advanced Certificate in Computer Programming and Applications)",
   "CCA (CERTIFICATE IN COMPUTER APPLICATION)": "CCA (Certificate in Computer Applications)",
   "TALLY (CETIFICATE IN FINANCIAL ACCOUNTING)": "Tally (Certificate in Financial Accounting)",
   "TYPING (HINDI /ENGLISH)": "Typing (Hindi / English)",
